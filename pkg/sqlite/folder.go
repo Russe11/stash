@@ -529,6 +529,76 @@ WHERE files.parent_folder_id IN (SELECT id FROM sub)`, levelClause)
 	return count, nil
 }
 
+// CountImagesInTree is the image counterpart of CountScenesInTree: distinct images whose files live
+// in the folder or, per depth, its sub-folders (nil/<0 unlimited, 0 self, n levels).
+func (qb *FolderStore) CountImagesInTree(ctx context.Context, id models.FolderID, depth *int) (int, error) {
+	levelClause := ""
+	args := []interface{}{id}
+	if depth != nil && *depth >= 0 {
+		levelClause = "WHERE sub.lvl < ?"
+		args = append(args, *depth)
+	}
+
+	query := fmt.Sprintf(`WITH RECURSIVE sub(id, lvl) AS (
+    SELECT id, 0 FROM folders WHERE id = ?
+    UNION ALL
+    SELECT folders.id, sub.lvl + 1 FROM folders JOIN sub ON folders.parent_folder_id = sub.id %s
+)
+SELECT COUNT(DISTINCT images_files.image_id)
+FROM images_files
+JOIN files ON files.id = images_files.file_id
+WHERE files.parent_folder_id IN (SELECT id FROM sub)`, levelClause)
+
+	wrapper := dbWrapperType{}
+	rows, err := wrapper.QueryxContext(ctx, query, args...)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return 0, fmt.Errorf("counting images in folder tree %d: %w", id, err)
+	}
+	defer rows.Close()
+
+	var count int
+	if rows.Next() {
+		if err := rows.Scan(&count); err != nil {
+			return 0, err
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
+// TotalSizeInTree returns the total size in bytes of every file in the folder and, recursively, all
+// its sub-folders. Recursion is always unlimited — a folder's size is its whole subtree.
+func (qb *FolderStore) TotalSizeInTree(ctx context.Context, id models.FolderID) (int64, error) {
+	const query = `WITH RECURSIVE sub(id) AS (
+    SELECT id FROM folders WHERE id = ?
+    UNION ALL
+    SELECT folders.id FROM folders JOIN sub ON folders.parent_folder_id = sub.id
+)
+SELECT COALESCE(SUM(files.size), 0) FROM files WHERE files.parent_folder_id IN (SELECT id FROM sub)`
+
+	wrapper := dbWrapperType{}
+	rows, err := wrapper.QueryxContext(ctx, query, id)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return 0, fmt.Errorf("summing file sizes in folder tree %d: %w", id, err)
+	}
+	defer rows.Close()
+
+	var total int64
+	if rows.Next() {
+		if err := rows.Scan(&total); err != nil {
+			return 0, err
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	return total, nil
+}
+
 // CountAllInPaths returns a count of all folders that are within any of the given paths.
 // Returns count of all folders if p is empty.
 func (qb *FolderStore) CountAllInPaths(ctx context.Context, p []string) (int, error) {

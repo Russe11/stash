@@ -26,6 +26,12 @@ type Folder {
   """
   scene_count(depth: Int): Int!
 
+  "Distinct images in this folder or, recursively, its sub-folders. depth as for scene_count."
+  image_count(depth: Int): Int!
+
+  "Total size in bytes of every file in this folder and, recursively, all its sub-folders."
+  total_size: Int64!
+
   mod_time: Time!
 
   created_at: Time!

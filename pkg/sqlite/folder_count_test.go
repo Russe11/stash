@@ -55,5 +55,37 @@ func TestFolderCountScenesInTree(t *testing.T) {
 		if depth1 != recursive {
 			t.Errorf("depth-1 count (%d) should equal the unlimited count (%d) for scenes one level down", depth1, recursive)
 		}
+
+		// total_size recurses: the parent (which includes the leaf's files) must be >= the leaf's,
+		// and never negative. (We don't assert a positive value: the fixture's file sizes are
+		// fileIndex*10, and the object files in this subtree happen to sum to 0.)
+		leafSize, err := qb.TotalSizeInTree(ctx, leaf)
+		if err != nil {
+			t.Fatalf("TotalSizeInTree(leaf): %v", err)
+		}
+		parentSize, err := qb.TotalSizeInTree(ctx, parent)
+		if err != nil {
+			t.Fatalf("TotalSizeInTree(parent): %v", err)
+		}
+		if leafSize < 0 || parentSize < 0 {
+			t.Errorf("total size should never be negative: leaf=%d parent=%d", leafSize, parentSize)
+		}
+		if parentSize < leafSize {
+			t.Errorf("recursive parent size (%d) should be >= leaf size (%d)", parentSize, leafSize)
+		}
+
+		// image_count recurses the same way (the fixture has an images folder elsewhere; just assert
+		// it runs and is non-negative and respects depth-0 <= unlimited).
+		imgRecursive, err := qb.CountImagesInTree(ctx, parent, nil)
+		if err != nil {
+			t.Fatalf("CountImagesInTree(parent, nil): %v", err)
+		}
+		imgDirect, err := qb.CountImagesInTree(ctx, parent, zero(0))
+		if err != nil {
+			t.Fatalf("CountImagesInTree(parent, 0): %v", err)
+		}
+		if imgRecursive < imgDirect {
+			t.Errorf("recursive image count (%d) should be >= depth-0 (%d)", imgRecursive, imgDirect)
+		}
 	})
 }

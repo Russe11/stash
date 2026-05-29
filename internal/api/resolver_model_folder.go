@@ -27,6 +27,30 @@ func (r *folderResolver) SceneCount(ctx context.Context, obj *models.Folder, dep
 	return ret, nil
 }
 
+// ImageCount resolves the recursive image count for a folder (image counterpart of SceneCount).
+func (r *folderResolver) ImageCount(ctx context.Context, obj *models.Folder, depth *int) (ret int, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = manager.GetInstance().Database.Folder.CountImagesInTree(ctx, obj.ID, depth)
+		return err
+	}); err != nil {
+		return 0, err
+	}
+
+	return ret, nil
+}
+
+// TotalSize resolves the recursive total file size (bytes) of a folder's subtree.
+func (r *folderResolver) TotalSize(ctx context.Context, obj *models.Folder) (ret int64, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = manager.GetInstance().Database.Folder.TotalSizeInTree(ctx, obj.ID)
+		return err
+	}); err != nil {
+		return 0, err
+	}
+
+	return ret, nil
+}
+
 func (r *folderResolver) ParentFolder(ctx context.Context, obj *models.Folder) (*models.Folder, error) {
 	if obj.ParentFolderID == nil {
 		return nil, nil
