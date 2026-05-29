@@ -301,6 +301,16 @@ generate-dataloaders:
 generate-stash-box-client:
 	go run github.com/Yamashou/gqlgenc
 
+# Exports a versioned, normalized snapshot of the NG GraphQL contract:
+#   graphql/schema/ng-schema.snapshot.graphql  (normalized SDL)
+#   graphql/schema/ng-schema.introspection.json (minimal introspection JSON)
+# This is the single artifact NG clients consume instead of re-deriving the
+# schema three ways. Regenerate after any schema change; the NG-to-NG contract
+# test (root repo contract/) diffs against it.
+.PHONY: export-ng-schema
+export-ng-schema:
+	go run ./tools/export-ng-schema
+
 # Runs gofmt -w on the project's source code, modifying any files that do not match its style.
 .PHONY: fmt
 fmt:
