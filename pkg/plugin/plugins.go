@@ -96,6 +96,7 @@ type ServerConfig interface {
 	GetPluginsPath() string
 	GetDisabledPlugins() []string
 	GetPythonPath() string
+	GetWebhookURLs() []string
 }
 
 // Cache stores plugin details.
@@ -365,6 +366,12 @@ func (c Cache) ExecutePostHooks(ctx context.Context, id int, hookType hook.Trigg
 		InputFields: inputFields,
 	}); err != nil {
 		logger.Errorf("error executing post hooks: %s", err.Error())
+	}
+
+	// Notify any configured outbound webhooks of this entity event (best-effort, async). This is the
+	// single point every entity create/update/destroy flows through, so one call covers them all.
+	if c.config != nil {
+		dispatchWebhooks(c.config.GetWebhookURLs(), hookType, id)
 	}
 }
 
