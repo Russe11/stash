@@ -284,6 +284,9 @@ type Query {
 
   # LatestVersion
   latestversion: LatestVersion!
+
+  # NG fork capability probe (absent on original upstream Stash)
+  serverCapabilities: ServerCapabilities!
 }
 
 type Mutation {

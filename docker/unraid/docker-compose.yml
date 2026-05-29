@@ -1,0 +1,50 @@
+# Fork ("stash-ng") deployment — runs SEPARATELY from your existing Stash.
+#
+#   docker compose -f docker/unraid/docker-compose.yml build      # build the fork image
+#   docker compose -f docker/unraid/docker-compose.yml up -d       # run it
+#
+# This binds to host port 9998 (your existing server keeps 9999) so the two can
+# never collide. The DATABASE is the one thing that cannot be shared live — see
+# docker/unraid/README.md for the safe cutover procedure before reusing appdata.
+services:
+  stash-ng:
+    build:
+      context: ../..                       # repo root — see Dockerfile note
+      dockerfile: docker/unraid/Dockerfile
+    image: stash-ng:latest
+    container_name: stash-ng
+    restart: unless-stopped
+    ports:
+      ## host:container — 9998 on the host keeps you clear of the stock server's 9999.
+      - "9998:9999"
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "10"
+        max-size: "2m"
+    environment:
+      - STASH_STASH=/data/
+      - STASH_GENERATED=/generated/
+      - STASH_METADATA=/metadata/
+      - STASH_CACHE=/cache/
+      - STASH_PORT=9999                     # container-internal port; leave at 9999
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+
+      ## ─── REUSING THE SAME APPDATA (cutover) ───────────────────────────────
+      ## Set every LEFT-side host path below to the SAME paths your existing
+      ## Stash container uses. Then this server reads the identical config.yml,
+      ## database, generated files, and blobs. Do this only with the old server
+      ## STOPPED, and only after backing up stash-go.sqlite (see README).
+
+      ## Config + scrapers + plugins + the SQLite database live here.
+      - /mnt/user/appdata/stash-ng:/root/.stash
+      ## Your media collection.
+      ## TIP: append `:ro` for a cautious first boot, so the fork's scan/cleanup
+      ## cannot move or delete real files until you've confirmed the migration.
+      - /mnt/user/media:/data
+      ## Metadata / generated / cache / blobs.
+      - /mnt/user/appdata/stash-ng/metadata:/metadata
+      - /mnt/user/appdata/stash-ng/cache:/cache
+      - /mnt/user/appdata/stash-ng/blobs:/blobs
+      - /mnt/user/appdata/stash-ng/generated:/generated

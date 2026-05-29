@@ -43,6 +43,22 @@ func IsOfficial() bool {
 	return officialBuild == "true"
 }
 
+// Edition identifies this build's variant. Original upstream Stash has no
+// equivalent; the NG fork stamps "ng" so clients can detect fork-only
+// capabilities via the serverCapabilities GraphQL query.
+const Edition = "ng"
+
+// NGAPIVersion is bumped whenever NG's client-facing API surface changes,
+// independently of the SQLite appSchema migration counter (which upstream
+// also increments and therefore cannot be used to distinguish the fork).
+const NGAPIVersion = 1
+
+// NGFeatures lists the fork-only capabilities clients may rely on. Keep in
+// sync with the NG additions actually wired into the schema/resolvers.
+func NGFeatures() []string {
+	return []string{"deletedSince", "moveFolder", "folderCounts", "webhooks"}
+}
+
 func IsDevelop() bool {
 	if githash == "" {
 		return false
