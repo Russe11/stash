@@ -12,4 +12,6 @@ type ServerCapabilities {
   apiVersion: Int!
   "Fork-only capabilities clients may rely on, e.g. deletedSince, moveFolder, folderCounts, webhooks."
   features: [String!]!
+  "Retention horizon for the deletedSince tombstone feed, in days. Tombstones older than this may be pruned; a client whose last sync is older than this must full-resync rather than trust the incremental feed. 0 means retention is disabled (tombstones are kept indefinitely)."
+  deletedSinceRetentionDays: Int!
 }

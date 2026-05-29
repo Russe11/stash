@@ -43,6 +43,12 @@ const (
 	Password            = "password"
 	MaxSessionAge       = "max_session_age"
 
+	// DeletedSinceRetentionDays config key: NG-only. Number of days to retain deletion
+	// tombstones for the deletedSince feed before pruning. <= 0 disables pruning (keep
+	// indefinitely). The advertised value lets a client whose watermark is older than the
+	// horizon know it must full-resync rather than trust the incremental feed.
+	DeletedSinceRetentionDays = "deleted_since_retention_days"
+
 	// SFWContentMode mode config key
 	SFWContentMode = "sfw_content_mode"
 
@@ -52,6 +58,11 @@ const (
 	BlobsStorage = "blobs_storage"
 
 	DefaultMaxSessionAge = 60 * 60 * 1 // 1 hours
+
+	// DefaultDeletedSinceRetentionDays is the default tombstone retention window for the
+	// deletedSince feed. NG keeps tombstones for this long by default; deletion is not
+	// aggressive (a generous window so even infrequently-synced clients stay incremental).
+	DefaultDeletedSinceRetentionDays = 365 // 1 year
 
 	Database = "database"
 
@@ -1233,6 +1244,23 @@ func (i *Config) GetMaxSessionAge() int {
 	v := i.forKey(MaxSessionAge)
 	if v.Exists(MaxSessionAge) {
 		ret = v.Int(MaxSessionAge)
+	}
+
+	return ret
+}
+
+// GetDeletedSinceRetentionDays returns the NG deletedSince tombstone retention window in days.
+// A value <= 0 disables pruning (tombstones are kept indefinitely). The default is a generous
+// window so infrequently-synced clients stay on the incremental feed; see prune wiring in the
+// manager and the advertised horizon in serverCapabilities.
+func (i *Config) GetDeletedSinceRetentionDays() int {
+	i.RLock()
+	defer i.RUnlock()
+
+	ret := DefaultDeletedSinceRetentionDays
+	v := i.forKey(DeletedSinceRetentionDays)
+	if v.Exists(DeletedSinceRetentionDays) {
+		ret = v.Int(DeletedSinceRetentionDays)
 	}
 
 	return ret

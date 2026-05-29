@@ -27,12 +27,23 @@ type Query {
   ): FindFoldersResultType!
 
   """
-  Returns entities deleted strictly after the given time, oldest first, so sync clients can
-  reconcile removals without diffing the entire id set. Only top-level syncable entities are
-  tracked (scenes, images, galleries, performers, studios, tags, groups, scene markers,
-  gallery chapters).
+  Returns deletion tombstones for top-level syncable entities (scenes, images, galleries,
+  performers, studios, tags, groups, scene markers, gallery chapters), oldest first, so sync
+  clients can reconcile removals without diffing the entire id set.
+
+  Two ways to anchor, in priority order:
+  - `after` (preferred, resumable): an opaque cursor returned in a previous DeletedSinceResult.
+    Paging is by the table's monotonic autoincrement id, so resuming from a cursor is exact and
+    never drops a tombstone written later in the same wall-clock second.
+  - `since` (initial anchor / back-compat): a timestamp; returns tombstones with deleted_at
+    strictly after it. Because deleted_at has 1-second resolution, `since` alone can drop a
+    same-second tombstone — use it only for the very first poll, then switch to `after`.
+
+  If both are supplied, `after` wins. `limit` caps the page size (server applies a sane default
+  and maximum). Check `pruned` on the result: if true, the caller's cursor predates the server's
+  retention horizon and the caller must full-resync.
   """
-  deletedSince(since: Time!): [DeletedRecord!]!
+  deletedSince(since: Time, after: String, limit: Int): DeletedSinceResult!
 
   "Find a scene by ID or Checksum"
   findScene(id: ID, checksum: String): Scene

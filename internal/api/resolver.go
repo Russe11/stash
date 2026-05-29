@@ -316,9 +316,10 @@ func (r *queryResolver) Version(ctx context.Context) (*Version, error) {
 // this query, so clients treat a "Cannot query field" error as upstream.
 func (r *queryResolver) ServerCapabilities(ctx context.Context) (*ServerCapabilities, error) {
 	return &ServerCapabilities{
-		Edition:    build.Edition,
-		APIVersion: build.NGAPIVersion,
-		Features:   build.NGFeatures(),
+		Edition:                   build.Edition,
+		APIVersion:                build.NGAPIVersion,
+		Features:                  build.NGFeatures(),
+		DeletedSinceRetentionDays: serverCapabilitiesDeletedSinceRetentionDays(),
 	}, nil
 }
 

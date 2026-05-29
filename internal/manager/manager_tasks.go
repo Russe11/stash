@@ -343,6 +343,7 @@ func (s *Manager) Clean(ctx context.Context, input CleanMetadataInput) int {
 func (s *Manager) OptimiseDatabase(ctx context.Context) int {
 	j := OptimiseDatabaseJob{
 		Optimiser: s.Database,
+		Pruner:    s.Database,
 	}
 
 	return s.JobManager.Add(ctx, "Optimising database...", &j)

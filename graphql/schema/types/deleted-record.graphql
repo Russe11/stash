@@ -9,4 +9,27 @@ type DeletedRecord {
   id: ID!
   "When the entity was deleted."
   deleted_at: Time!
+  "Opaque, monotonically increasing cursor identifying this tombstone. Pass the last record's cursor as deletedSince(after:) to resume exactly after it — this is exact and immune to same-second collisions, unlike advancing a deleted_at watermark."
+  cursor: String!
+}
+
+"""
+A page of deletion tombstones plus the cursor a client should persist to resume.
+
+Resumability contract: persist `cursor` and pass it back as deletedSince(after:) on the next
+poll. Because tombstones are paged by the table's monotonic autoincrement id (not by the
+1-second-resolution deleted_at), resuming from a cursor never drops a tombstone written later in
+the same wall-clock second. When `pruned` is true the server has discarded tombstones older than
+its retention horizon and the caller's cursor predates them, so the caller must full-resync (diff
+the entire id set) rather than trust this incremental feed.
+"""
+type DeletedSinceResult {
+  "The tombstones in this page, oldest first."
+  records: [DeletedRecord!]!
+  "Opaque cursor to persist and pass back as deletedSince(after:) next time. Empty string only when no tombstones have ever been recorded; otherwise it is the latest cursor the caller has seen (so an empty page still advances/holds the watermark safely)."
+  cursor: String!
+  "True if more tombstones remain beyond this page (the caller should poll again immediately)."
+  has_more: Boolean!
+  "True if the caller's `after` cursor is older than the server's retention horizon, meaning some tombstones were pruned and the caller must full-resync instead of trusting this incremental feed."
+  pruned: Boolean!
 }
