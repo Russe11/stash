@@ -302,8 +302,10 @@ generate-stash-box-client:
 	go run github.com/Yamashou/gqlgenc
 
 # Exports a versioned, normalized snapshot of the NG GraphQL contract:
-#   graphql/schema/ng-schema.snapshot.graphql  (normalized SDL)
-#   graphql/schema/ng-schema.introspection.json (minimal introspection JSON)
+#   graphql/ng-snapshot/ng-schema.snapshot.graphql  (normalized SDL)
+#   graphql/ng-snapshot/ng-schema.introspection.json (minimal introspection JSON)
+# These live OUTSIDE the gqlgen schema glob (graphql/schema/*.graphql) so they
+# don't get re-loaded as duplicate types by `go generate`.
 # This is the single artifact NG clients consume instead of re-deriving the
 # schema three ways. Regenerate after any schema change; the NG-to-NG contract
 # test (root repo contract/) diffs against it.
