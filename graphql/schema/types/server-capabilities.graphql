@@ -1,0 +1,15 @@
+"""
+ServerCapabilities lets clients detect the Stash NG fork and which fork-only
+features it supports BEFORE invoking them. Original upstream Stash does not
+define the serverCapabilities query, so a "Cannot query field" GraphQL error
+is the negative signal: clients should treat that error as edition = upstream
+and gate all NG-only behaviour off.
+"""
+type ServerCapabilities {
+  "Build variant. \"ng\" for this fork; original upstream has no such field."
+  edition: String!
+  "NG client-facing API revision, bumped independently of SystemStatus.appSchema."
+  apiVersion: Int!
+  "Fork-only capabilities clients may rely on, e.g. deletedSince, moveFolder, folderCounts, webhooks."
+  features: [String!]!
+}

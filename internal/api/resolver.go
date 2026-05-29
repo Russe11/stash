@@ -310,6 +310,18 @@ func (r *queryResolver) Version(ctx context.Context) (*Version, error) {
 	}, nil
 }
 
+// ServerCapabilities reports the NG fork edition and its fork-only feature set
+// so clients can gate NG behaviour explicitly instead of probing individual
+// NG operations by trial-and-error. Original upstream Stash does not define
+// this query, so clients treat a "Cannot query field" error as upstream.
+func (r *queryResolver) ServerCapabilities(ctx context.Context) (*ServerCapabilities, error) {
+	return &ServerCapabilities{
+		Edition:    build.Edition,
+		APIVersion: build.NGAPIVersion,
+		Features:   build.NGFeatures(),
+	}, nil
+}
+
 func (r *queryResolver) Latestversion(ctx context.Context) (*LatestVersion, error) {
 	latestRelease, err := GetLatestRelease(ctx)
 	if err != nil {

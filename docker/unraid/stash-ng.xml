@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<!--
+  Unraid Community-Applications template for the forked Stash server.
+
+  This image is built locally (it is not on a registry), so before adding the
+  container you must build & tag it on the Unraid host:
+
+      cd /boot/config/plugins/.../stash       # wherever you cloned the fork repo
+      docker build -f docker/unraid/Dockerfile -t stash-ng:latest .
+
+  Then install this template:
+      cp docker/unraid/stash-ng.xml /boot/config/plugins/dockerMan/templates-user/my-stash-ng.xml
+  and add it from the Docker tab ("Add Container" -> select "stash-ng").
+
+  Runs on host port 9998 so it never collides with your stock Stash (9999).
+  Reusing the same appdata is a one-way migration — read docker/unraid/README.md.
+-->
+<Container version="2">
+  <Name>stash-ng</Name>
+  <Repository>stash-ng:latest</Repository>
+  <Registry/>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support/>
+  <Project/>
+  <Overview>Forked Stash server (schema v86: deletion feed, moveFolder mutation, recursive folder stats, outbound webhooks). Built locally from source. Runs separately from the stock stashapp/stash container. Reusing an existing v85 library is a one-way migration to v86 — back up stash-go.sqlite first.</Overview>
+  <Category>MediaApp:Video MediaServer:Video</Category>
+  <WebUI>http://[IP]:[PORT:9998]/</WebUI>
+  <TemplateURL/>
+  <Icon>https://raw.githubusercontent.com/stashapp/stash/develop/ui/v2.5/public/stash_icon.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+  <Config Name="WebUI Port" Target="9999" Default="9998" Mode="tcp" Description="Host port for the fork's web UI. Kept off 9999 so it never clashes with your stock Stash." Type="Port" Display="always" Required="true" Mask="false">9998</Config>
+  <Config Name="Config (.stash appdata)" Target="/root/.stash" Default="/mnt/user/appdata/stash-ng" Mode="rw" Description="Holds config.yml, scrapers, plugins, and the SQLite database. To REUSE your existing library, point this at your current server's config dir (old server stopped + DB backed up first)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/stash-ng</Config>
+  <Config Name="Media" Target="/data" Default="/mnt/user/media" Mode="rw" Description="Your media collection. For a cautious first boot set Mode to ro so the fork cannot move/delete files until the migration is confirmed." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/media</Config>
+  <Config Name="Generated" Target="/generated" Default="/mnt/user/appdata/stash-ng/generated" Mode="rw" Description="Sprites, previews, transcodes, screenshots." Type="Path" Display="advanced" Required="false" Mask="false">/mnt/user/appdata/stash-ng/generated</Config>
+  <Config Name="Metadata" Target="/metadata" Default="/mnt/user/appdata/stash-ng/metadata" Mode="rw" Description="Metadata path." Type="Path" Display="advanced" Required="false" Mask="false">/mnt/user/appdata/stash-ng/metadata</Config>
+  <Config Name="Cache" Target="/cache" Default="/mnt/user/appdata/stash-ng/cache" Mode="rw" Description="Cache path." Type="Path" Display="advanced" Required="false" Mask="false">/mnt/user/appdata/stash-ng/cache</Config>
+  <Config Name="Blobs" Target="/blobs" Default="/mnt/user/appdata/stash-ng/blobs" Mode="rw" Description="Binary blob data (scene covers, images) when blob storage is set to filesystem." Type="Path" Display="advanced" Required="false" Mask="false">/mnt/user/appdata/stash-ng/blobs</Config>
+  <Config Name="STASH_PORT" Target="STASH_PORT" Default="9999" Mode="" Description="Container-internal port. Leave at 9999; change the host port instead." Type="Variable" Display="advanced" Required="true" Mask="false">9999</Config>
+  <Config Name="STASH_STASH" Target="STASH_STASH" Default="/data/" Mode="" Description="Default media directory inside the container." Type="Variable" Display="advanced" Required="false" Mask="false">/data/</Config>
+  <Config Name="STASH_GENERATED" Target="STASH_GENERATED" Default="/generated/" Mode="" Description="Generated content directory inside the container." Type="Variable" Display="advanced" Required="false" Mask="false">/generated/</Config>
+  <Config Name="STASH_METADATA" Target="STASH_METADATA" Default="/metadata/" Mode="" Description="Metadata directory inside the container." Type="Variable" Display="advanced" Required="false" Mask="false">/metadata/</Config>
+  <Config Name="STASH_CACHE" Target="STASH_CACHE" Default="/cache/" Mode="" Description="Cache directory inside the container." Type="Variable" Display="advanced" Required="false" Mask="false">/cache/</Config>
+</Container>
