@@ -485,6 +485,50 @@ func (qb *FolderStore) FindAllInPaths(ctx context.Context, p []string, includeZi
 	return ret, nil
 }
 
+// CountScenesInTree returns the number of distinct scenes whose files live in the folder with the
+// given id or, recursively, its sub-folders. depth controls recursion using the same convention as
+// the rest of the codebase (e.g. group counts): nil or negative = unlimited; 0 = this folder only;
+// n > 0 = this folder plus n levels of descendants.
+func (qb *FolderStore) CountScenesInTree(ctx context.Context, id models.FolderID, depth *int) (int, error) {
+	// limit the recursion depth when requested. depth 0 yields `sub.lvl < 0`, which admits no
+	// descendants, leaving only the folder itself.
+	levelClause := ""
+	args := []interface{}{id}
+	if depth != nil && *depth >= 0 {
+		levelClause = "WHERE sub.lvl < ?"
+		args = append(args, *depth)
+	}
+
+	query := fmt.Sprintf(`WITH RECURSIVE sub(id, lvl) AS (
+    SELECT id, 0 FROM folders WHERE id = ?
+    UNION ALL
+    SELECT folders.id, sub.lvl + 1 FROM folders JOIN sub ON folders.parent_folder_id = sub.id %s
+)
+SELECT COUNT(DISTINCT scenes_files.scene_id)
+FROM scenes_files
+JOIN files ON files.id = scenes_files.file_id
+WHERE files.parent_folder_id IN (SELECT id FROM sub)`, levelClause)
+
+	wrapper := dbWrapperType{}
+	rows, err := wrapper.QueryxContext(ctx, query, args...)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return 0, fmt.Errorf("counting scenes in folder tree %d: %w", id, err)
+	}
+	defer rows.Close()
+
+	var count int
+	if rows.Next() {
+		if err := rows.Scan(&count); err != nil {
+			return 0, err
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
 // CountAllInPaths returns a count of all folders that are within any of the given paths.
 // Returns count of all folders if p is empty.
 func (qb *FolderStore) CountAllInPaths(ctx context.Context, p []string) (int, error) {

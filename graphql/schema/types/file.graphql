@@ -19,6 +19,13 @@ type Folder {
   "Returns direct sub-folders"
   sub_folders: [Folder!]!
 
+  """
+  The number of distinct scenes whose files are in this folder or, recursively, its sub-folders.
+  depth controls recursion: omitted or negative = unlimited; 0 = this folder only; n = this folder
+  plus n levels of descendants.
+  """
+  scene_count(depth: Int): Int!
+
   mod_time: Time!
 
   created_at: Time!
@@ -160,6 +167,17 @@ input MoveFilesInput {
   destination_folder_id: ID
 
   "valid only for single file id. If empty, existing basename is used"
+  destination_basename: String
+}
+
+input MoveFolderInput {
+  "ID of the folder to move"
+  id: ID!
+  "ID of the destination parent folder. Takes precedence over destination_folder."
+  destination_folder_id: ID
+  "Path of the destination parent folder. Must be within a library path; created if needed."
+  destination_folder: String
+  "Optional new name for the folder. If empty, the existing folder name is kept."
   destination_basename: String
 }
 
