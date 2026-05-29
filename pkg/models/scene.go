@@ -162,6 +162,13 @@ type SceneQueryResult struct {
 	resolveErr error
 }
 
+// SimilarScene is a perceptual-hash neighbour of a target scene: a scene id and
+// the Hamming distance between its primary video phash and the target's.
+type SimilarScene struct {
+	ID       int
+	Distance int
+}
+
 // SceneMovieInput is used for groups and movies
 type SceneMovieInput struct {
 	MovieID    string `json:"movie_id"`

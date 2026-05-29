@@ -4653,6 +4653,114 @@ func TestSceneStore_FindDuplicates(t *testing.T) {
 	})
 }
 
+// createSceneWithPhash creates a scene with a single video file carrying the
+// given phash fingerprint, in the current transaction.
+func createSceneWithPhash(ctx context.Context, name string, phash int64) (*models.Scene, error) {
+	sceneFile := &models.VideoFile{
+		BaseFile: &models.BaseFile{
+			Basename:       name,
+			ParentFolderID: folderIDs[folderIdxWithSceneFiles],
+			Fingerprints: []models.Fingerprint{
+				{
+					Type:        models.FingerprintTypePhash,
+					Fingerprint: phash,
+				},
+			},
+		},
+		Duration: 100,
+	}
+
+	if err := db.File.Create(ctx, sceneFile); err != nil {
+		return nil, err
+	}
+
+	scene := &models.Scene{}
+	if err := db.Scene.Create(ctx, scene, []models.FileID{sceneFile.ID}); err != nil {
+		return nil, err
+	}
+
+	return scene, nil
+}
+
+func TestSceneStore_FindSimilar(t *testing.T) {
+	qb := db.Scene
+
+	withRollbackTxn(func(ctx context.Context) error {
+		// phash_distance is popcount(XOR). Construct a base scene, a "near"
+		// scene 2 bits away, and a "far" scene 20 bits away.
+		const (
+			basePhash int64 = 0x0000000000000000
+			nearPhash int64 = 0x0000000000000003 // 2 bits set -> distance 2 from base
+			farPhash  int64 = 0x00000000000FFFFF // 20 bits set -> distance 20 from base
+		)
+
+		base, err := createSceneWithPhash(ctx, "FindSimilar base", basePhash)
+		if err != nil {
+			t.Fatalf("creating base scene: %v", err)
+		}
+		near, err := createSceneWithPhash(ctx, "FindSimilar near", nearPhash)
+		if err != nil {
+			t.Fatalf("creating near scene: %v", err)
+		}
+		if _, err := createSceneWithPhash(ctx, "FindSimilar far", farPhash); err != nil {
+			t.Fatalf("creating far scene: %v", err)
+		}
+
+		// Within distance 10: only the near scene qualifies; the base scene
+		// itself is excluded, and the far scene (distance 20) is out of range.
+		got, err := qb.FindSimilar(ctx, base.ID, 10, 40)
+		if err != nil {
+			t.Fatalf("FindSimilar() error = %v", err)
+		}
+
+		var foundNear *models.SimilarScene
+		for _, s := range got {
+			if s.ID == base.ID {
+				t.Errorf("FindSimilar() returned the target scene itself (id=%d)", base.ID)
+			}
+			if s.ID == near.ID {
+				foundNear = s
+			}
+		}
+		if foundNear == nil {
+			t.Fatalf("FindSimilar() did not return the near scene (id=%d); got %d results", near.ID, len(got))
+		}
+		assert.Equal(t, 2, foundNear.Distance, "near scene should be reported at Hamming distance 2")
+
+		// Widen the distance so the far scene (distance 20) is also included,
+		// and assert nearest-first ordering: near (2) before far (20).
+		got, err = qb.FindSimilar(ctx, base.ID, 25, 40)
+		if err != nil {
+			t.Fatalf("FindSimilar() error = %v", err)
+		}
+		// Collect indices of our two known scenes within the result slice.
+		nearPos, farPos := -1, -1
+		for i, s := range got {
+			switch s.ID {
+			case near.ID:
+				nearPos = i
+			default:
+				if s.Distance == 20 {
+					farPos = i
+				}
+			}
+		}
+		if nearPos == -1 || farPos == -1 {
+			t.Fatalf("expected both near and far scenes within distance 25; nearPos=%d farPos=%d", nearPos, farPos)
+		}
+		assert.Less(t, nearPos, farPos, "nearer scene must sort before the farther scene")
+
+		// limit is respected.
+		got, err = qb.FindSimilar(ctx, base.ID, 25, 1)
+		if err != nil {
+			t.Fatalf("FindSimilar() error = %v", err)
+		}
+		assert.LessOrEqual(t, len(got), 1, "limit should cap the number of results")
+
+		return nil
+	})
+}
+
 func TestSceneStore_AssignFiles(t *testing.T) {
 	tests := []struct {
 		name    string

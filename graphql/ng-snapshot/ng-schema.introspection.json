@@ -8112,6 +8112,24 @@
           ]
         },
         {
+          "name": "findSimilarScenes",
+          "type": "[SimilarSceneResult!]!",
+          "args": [
+            {
+              "name": "scene_id",
+              "type": "ID!"
+            },
+            {
+              "name": "distance",
+              "type": "Int"
+            },
+            {
+              "name": "limit",
+              "type": "Int"
+            }
+          ]
+        },
+        {
           "name": "sceneStreams",
           "type": "[SceneStreamEndpoint!]!",
           "args": [
@@ -11333,6 +11351,21 @@
         {
           "name": "blobsLocation",
           "type": "String!"
+        }
+      ]
+    },
+    {
+      "kind": "OBJECT",
+      "name": "SimilarSceneResult",
+      "description": "NG-only. A perceptual-hash neighbour of a target scene, with its phash Hamming distance.",
+      "fields": [
+        {
+          "name": "scene",
+          "type": "Scene!"
+        },
+        {
+          "name": "distance",
+          "type": "Int!"
         }
       ]
     },

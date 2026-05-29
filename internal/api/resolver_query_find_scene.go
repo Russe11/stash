@@ -246,6 +246,60 @@ func (r *queryResolver) FindDuplicateScenes(ctx context.Context, distance *int, 
 	return ret, nil
 }
 
+func (r *queryResolver) FindSimilarScenes(ctx context.Context, sceneID string, distance *int, limit *int) (ret []*SimilarSceneResult, err error) {
+	id, err := strconv.Atoi(sceneID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Defaults match the schema (distance: 10, limit: 40) for direct/non-GraphQL
+	// callers; gqlgen also supplies these via the SDL default values.
+	dist := 10
+	if distance != nil {
+		dist = *distance
+	}
+	lim := 40
+	if limit != nil {
+		lim = *limit
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		similar, err := r.repository.Scene.FindSimilar(ctx, id, dist, lim)
+		if err != nil {
+			return err
+		}
+		if len(similar) == 0 {
+			ret = []*SimilarSceneResult{}
+			return nil
+		}
+
+		ids := make([]int, len(similar))
+		for i, s := range similar {
+			ids[i] = s.ID
+		}
+
+		// FindMany returns scenes in the same order as ids, so the nearest-first
+		// ordering from FindSimilar is preserved.
+		scenes, err := r.repository.Scene.FindMany(ctx, ids)
+		if err != nil {
+			return err
+		}
+
+		ret = make([]*SimilarSceneResult, len(similar))
+		for i, s := range similar {
+			ret[i] = &SimilarSceneResult{
+				Scene:    scenes[i],
+				Distance: s.Distance,
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
 func (r *queryResolver) AllScenes(ctx context.Context) (ret []*models.Scene, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		ret, err = r.repository.Scene.All(ctx)

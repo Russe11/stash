@@ -72,6 +72,20 @@ type Query {
     duration_diff: Float
   ): [[Scene!]!]!
 
+  """
+  NG-only. Returns scenes whose primary video perceptual hash (phash) is within the
+  given Hamming distance of the target scene's phash, nearest first, excluding the
+  target scene itself. Backs the "more like this" / similar-scene feature.
+  """
+  findSimilarScenes(
+    "The scene to find perceptual neighbours of. Must have a video phash fingerprint."
+    scene_id: ID!
+    "Maximum Hamming distance (0-64) between phashes to be considered similar."
+    distance: Int = 10
+    "Maximum number of similar scenes to return."
+    limit: Int = 40
+  ): [SimilarSceneResult!]!
+
   "Return valid stream paths"
   sceneStreams(id: ID): [SceneStreamEndpoint!]!
 

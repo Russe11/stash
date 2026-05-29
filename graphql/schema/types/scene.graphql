@@ -225,6 +225,13 @@ type FindScenesResultType {
   scenes: [Scene!]!
 }
 
+"NG-only. A perceptual-hash neighbour of a target scene, with its phash Hamming distance."
+type SimilarSceneResult {
+  scene: Scene!
+  "Hamming distance between this scene's phash and the target scene's phash (lower = more similar)."
+  distance: Int!
+}
+
 input SceneParserInput {
   ignoreWords: [String!]
   whitespaceCharacters: String

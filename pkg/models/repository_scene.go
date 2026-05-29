@@ -29,6 +29,9 @@ type SceneFinder interface {
 	FindByGalleryID(ctx context.Context, performerID int) ([]*Scene, error)
 	FindByGroupID(ctx context.Context, groupID int) ([]*Scene, error)
 	FindDuplicates(ctx context.Context, distance int, durationDiff float64) ([][]*Scene, error)
+	// FindSimilar returns the perceptual-hash neighbours of sceneID within the
+	// given Hamming distance, nearest first, excluding sceneID itself.
+	FindSimilar(ctx context.Context, sceneID int, distance int, limit int) ([]*SimilarScene, error)
 }
 
 // SceneQueryer provides methods to query scenes.

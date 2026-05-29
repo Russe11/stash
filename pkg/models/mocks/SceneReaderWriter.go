@@ -687,6 +687,29 @@ func (_m *SceneReaderWriter) FindDuplicates(ctx context.Context, distance int, d
 	return r0, r1
 }
 
+// FindSimilar provides a mock function with given fields: ctx, sceneID, distance, limit
+func (_m *SceneReaderWriter) FindSimilar(ctx context.Context, sceneID int, distance int, limit int) ([]*models.SimilarScene, error) {
+	ret := _m.Called(ctx, sceneID, distance, limit)
+
+	var r0 []*models.SimilarScene
+	if rf, ok := ret.Get(0).(func(context.Context, int, int, int) []*models.SimilarScene); ok {
+		r0 = rf(ctx, sceneID, distance, limit)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*models.SimilarScene)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int, int, int) error); ok {
+		r1 = rf(ctx, sceneID, distance, limit)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindMany provides a mock function with given fields: ctx, ids
 func (_m *SceneReaderWriter) FindMany(ctx context.Context, ids []int) ([]*models.Scene, error) {
 	ret := _m.Called(ctx, ids)

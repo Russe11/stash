@@ -76,6 +76,36 @@ INNER JOIN video_files ON (files.id == video_files.file_id)
 ORDER BY files.size DESC;
 `
 
+// findScenePhashesQuery returns every video phash fingerprint belonging to a
+// given scene (a scene may have more than one video file / fingerprint).
+var findScenePhashesQuery = `
+SELECT files_fingerprints.fingerprint as phash
+FROM scenes_files
+INNER JOIN files_fingerprints ON (scenes_files.file_id = files_fingerprints.file_id AND files_fingerprints.type = 'phash')
+WHERE scenes_files.scene_id = ?
+    AND typeof(files_fingerprints.fingerprint) = 'integer';
+`
+
+// findSimilarScenesQuery returns the nearest scenes to a target phash within a
+// given Hamming distance, using the registered phash_distance SQL function (the
+// same mechanism the phash-distance scene filter and duplicate finder use). It
+// excludes the target scene and orders nearest-first. The duplicate fingerprint
+// of a scene is collapsed via MIN(distance) GROUP BY scene so each neighbour
+// appears once at its closest distance.
+var findSimilarScenesQuery = `
+SELECT scenes_files.scene_id as id
+    , MIN(phash_distance(files_fingerprints.fingerprint, ?1)) as distance
+FROM files_fingerprints
+INNER JOIN scenes_files ON (files_fingerprints.file_id = scenes_files.file_id)
+WHERE files_fingerprints.type = 'phash'
+    AND typeof(files_fingerprints.fingerprint) = 'integer'
+    AND scenes_files.scene_id != ?2
+GROUP BY scenes_files.scene_id
+HAVING distance <= ?3
+ORDER BY distance ASC, scenes_files.scene_id ASC
+LIMIT ?4;
+`
+
 type sceneRow struct {
 	ID            int         `db:"id" goqu:"skipinsert"`
 	Title         zero.String `db:"title"`
@@ -1514,6 +1544,64 @@ func (qb *SceneStore) FindDuplicates(ctx context.Context, distance int, duration
 	sortByPath(duplicates)
 
 	return duplicates, nil
+}
+
+// FindSimilar returns the scenes whose primary video phash is within the given
+// Hamming distance of sceneID's phash, nearest first, excluding sceneID itself.
+// It reuses the registered phash_distance SQL function so the comparison happens
+// in SQLite rather than as an O(N) in-memory scan in the resolver.
+func (qb *SceneStore) FindSimilar(ctx context.Context, sceneID int, distance int, limit int) ([]*models.SimilarScene, error) {
+	if distance < 0 {
+		distance = 0
+	}
+
+	// A scene may have multiple video files / fingerprints; we want neighbours of
+	// any of the target's phashes. Collect them and union the per-phash results,
+	// keeping each neighbour at its closest distance.
+	var phashes []int64
+	if err := dbWrapper.Select(ctx, &phashes, findScenePhashesQuery, sceneID); err != nil {
+		return nil, err
+	}
+	if len(phashes) == 0 {
+		// No video phash for this scene -> nothing to compare against.
+		return nil, nil
+	}
+
+	// Closest distance seen per neighbour scene id.
+	closest := make(map[int]int)
+	for _, phash := range phashes {
+		var rows []struct {
+			ID       int `db:"id"`
+			Distance int `db:"distance"`
+		}
+		if err := dbWrapper.Select(ctx, &rows, findSimilarScenesQuery, phash, sceneID, distance, limit); err != nil {
+			return nil, err
+		}
+		for _, r := range rows {
+			if existing, ok := closest[r.ID]; !ok || r.Distance < existing {
+				closest[r.ID] = r.Distance
+			}
+		}
+	}
+
+	results := make([]*models.SimilarScene, 0, len(closest))
+	for id, d := range closest {
+		results = append(results, &models.SimilarScene{ID: id, Distance: d})
+	}
+
+	// Nearest first; stable tiebreak on id so ordering is deterministic.
+	sort.SliceStable(results, func(i, j int) bool {
+		if results[i].Distance != results[j].Distance {
+			return results[i].Distance < results[j].Distance
+		}
+		return results[i].ID < results[j].ID
+	})
+
+	if limit >= 0 && len(results) > limit {
+		results = results[:limit]
+	}
+
+	return results, nil
 }
 
 func sortByPath(scenes [][]*models.Scene) {
