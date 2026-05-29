@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/stashapp/stash/internal/desktop"
@@ -107,6 +108,89 @@ func (r *mutationResolver) MoveFiles(ctx context.Context, input MoveFilesInput) 
 		}
 
 		return nil
+	}); err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (r *mutationResolver) MoveFolder(ctx context.Context, input MoveFolderInput) (bool, error) {
+	if err := r.withTxn(ctx, func(ctx context.Context) error {
+		folderStore := r.repository.Folder
+		fileStore := r.repository.File
+		mover := file.NewMover(fileStore, folderStore, manager.GetInstance().Config.GetStashPaths().Paths())
+		mover.RegisterHooks(ctx)
+
+		// find the source folder
+		folderID, err := strconv.Atoi(input.ID)
+		if err != nil {
+			return fmt.Errorf("converting folder id: %w", err)
+		}
+		folder, err := folderStore.Find(ctx, models.FolderID(folderID))
+		if err != nil {
+			return fmt.Errorf("finding folder %d: %w", folderID, err)
+		}
+		if folder == nil {
+			return fmt.Errorf("folder with id %d not found", folderID)
+		}
+
+		// resolve the destination parent folder, by id (preferred) or by path
+		var destParent *models.Folder
+		switch {
+		case input.DestinationFolderID != nil:
+			destID, err := strconv.Atoi(*input.DestinationFolderID)
+			if err != nil {
+				return fmt.Errorf("converting destination folder id: %w", err)
+			}
+			destParent, err = folderStore.Find(ctx, models.FolderID(destID))
+			if err != nil {
+				return fmt.Errorf("finding destination folder: %w", err)
+			}
+			if destParent == nil {
+				return fmt.Errorf("destination folder with id %d not found", destID)
+			}
+			if destParent.ZipFileID != nil {
+				return fmt.Errorf("cannot move into %s, is in a zip file", destParent.Path)
+			}
+		case input.DestinationFolder != nil:
+			stashPaths := manager.GetInstance().Config.GetStashPaths()
+			if err := r.validateFolderPath(stashPaths, *input.DestinationFolder); err != nil {
+				return err
+			}
+			destParent, err = file.GetOrCreateFolderHierarchy(ctx, folderStore, *input.DestinationFolder, stashPaths.Paths())
+			if err != nil {
+				return fmt.Errorf("getting or creating destination folder hierarchy: %w", err)
+			}
+		default:
+			return fmt.Errorf("must specify destination folder or path")
+		}
+
+		// prevent moving a folder into itself or its own subtree (a cycle).
+		// GetManyParentFolderIDs returns the destination's ancestors only (excluding itself), so
+		// the folder is an ancestor of the destination iff its id appears in that list.
+		if destParent.ID == folder.ID {
+			return fmt.Errorf("cannot move a folder into itself")
+		}
+		ancestors, err := folderStore.GetManyParentFolderIDs(ctx, []models.FolderID{destParent.ID})
+		if err != nil {
+			return fmt.Errorf("getting destination folder ancestors: %w", err)
+		}
+		if len(ancestors) > 0 && slices.Contains(ancestors[0], folder.ID) {
+			return fmt.Errorf("cannot move a folder into its own subfolder")
+		}
+
+		// ensure the destination directory exists in the filesystem
+		if err := mover.CreateFolderHierarchy(destParent.Path); err != nil {
+			return fmt.Errorf("creating destination folder hierarchy %s: %w", destParent.Path, err)
+		}
+
+		basename := ""
+		if input.DestinationBasename != nil {
+			basename = *input.DestinationBasename
+		}
+
+		return mover.MoveFolder(ctx, folder, destParent, basename)
 	}); err != nil {
 		return false, err
 	}

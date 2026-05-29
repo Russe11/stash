@@ -126,6 +126,11 @@ func (t *table) destroy(ctx context.Context, ids []int) error {
 		return fmt.Errorf("destroying %s: %w", t.table.GetTable(), err)
 	}
 
+	// record tombstones for synced entities so clients can reconcile deletions (no-op otherwise)
+	if err := recordDeletions(ctx, t.table.GetTable(), ids); err != nil {
+		return err
+	}
+
 	return nil
 }
 

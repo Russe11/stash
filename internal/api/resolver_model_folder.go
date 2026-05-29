@@ -5,11 +5,26 @@ import (
 	"path/filepath"
 
 	"github.com/stashapp/stash/internal/api/loaders"
+	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/pkg/models"
 )
 
 func (r *folderResolver) Basename(ctx context.Context, obj *models.Folder) (string, error) {
 	return filepath.Base(obj.Path), nil
+}
+
+// SceneCount resolves the recursive scene count for a folder. It calls the concrete FolderStore
+// directly (rather than the FolderReaderWriter interface) so the count method doesn't widen the
+// interface or require regenerating mocks. depth is forwarded to the recursive query.
+func (r *folderResolver) SceneCount(ctx context.Context, obj *models.Folder, depth *int) (ret int, err error) {
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		ret, err = manager.GetInstance().Database.Folder.CountScenesInTree(ctx, obj.ID, depth)
+		return err
+	}); err != nil {
+		return 0, err
+	}
+
+	return ret, nil
 }
 
 func (r *folderResolver) ParentFolder(ctx context.Context, obj *models.Folder) (*models.Folder, error) {

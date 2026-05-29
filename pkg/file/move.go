@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/stashapp/stash/pkg/logger"
@@ -112,6 +113,78 @@ func (m *Mover) Move(ctx context.Context, f models.File, folder *models.Folder, 
 
 	// then move the file
 	return m.moveFile(oldPath, newPath)
+}
+
+// MoveFolder moves folder to be a child of destParent, optionally renaming it to basename (when
+// basename is empty the existing folder name is kept). It updates the folder row and recursively
+// rewrites the paths of every contained sub-folder (descendant file paths are derived from their
+// parent folder, so they follow automatically), then renames the directory on the filesystem.
+//
+// The filesystem move uses a plain rename: cross-device moves are rejected rather than silently
+// falling back to a (potentially huge, partial-failure-prone) recursive copy. The rename is
+// recorded so the Mover's post-rollback hook reverses it if the transaction fails. Assumes the
+// destination parent directory already exists (call CreateFolderHierarchy first) and that the
+// caller has rejected moving the folder into itself or its own subtree.
+func (m *Mover) MoveFolder(ctx context.Context, folder *models.Folder, destParent *models.Folder, basename string) error {
+	if folder.ZipFileID != nil {
+		return fmt.Errorf("cannot move folder %s, is in a zip file", folder.Path)
+	}
+	if folder.ParentFolderID == nil {
+		return fmt.Errorf("cannot move library root folder %s", folder.Path)
+	}
+
+	if basename == "" {
+		basename = filepath.Base(folder.Path)
+	}
+
+	// nothing to do
+	if destParent.ID == *folder.ParentFolderID && basename == filepath.Base(folder.Path) {
+		return nil
+	}
+
+	newPath := filepath.Join(destParent.Path, basename)
+
+	// ensure the destination doesn't already exist, in the database...
+	const caseSensitive = true
+	existing, err := m.Folders.FindByPath(ctx, newPath, caseSensitive)
+	if err != nil {
+		return fmt.Errorf("checking destination folder %s: %w", newPath, err)
+	}
+	if existing != nil {
+		return fmt.Errorf("folder %s already exists", newPath)
+	}
+	// ...nor on the filesystem
+	if _, err := m.Renamer.Stat(newPath); !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("path %s already exists", newPath)
+	}
+
+	// move on the filesystem with a plain rename (no copy fallback); reject cross-device moves
+	oldPath := folder.Path
+	if err := os.Rename(oldPath, newPath); err != nil {
+		if errors.Is(err, syscall.EXDEV) {
+			return fmt.Errorf("cannot move folder %s to %s: source and destination are on different filesystems", oldPath, newPath)
+		}
+		return fmt.Errorf("renaming folder %s to %s: %w", oldPath, newPath, err)
+	}
+	if m.moved == nil {
+		m.moved = make(map[string]string)
+	}
+	m.moved[newPath] = oldPath
+
+	// update the database: the folder row, then recursively its descendants
+	destParentID := destParent.ID
+	folder.Path = newPath
+	folder.ParentFolderID = &destParentID
+	folder.UpdatedAt = time.Now()
+	if err := m.Folders.Update(ctx, folder); err != nil {
+		return fmt.Errorf("updating folder %s: %w", oldPath, err)
+	}
+
+	if err := correctSubFolderHierarchy(ctx, m.Folders, folder); err != nil {
+		return fmt.Errorf("correcting sub-folder hierarchy for %s: %w", folder.Path, err)
+	}
+
+	return nil
 }
 
 func (m *Mover) CreateFolderHierarchy(path string) error {

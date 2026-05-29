@@ -1,0 +1,12 @@
+"""
+A tombstone for a deleted top-level entity, surfaced by the deletedSince query so sync clients
+can reconcile removals incrementally instead of fetching and diffing the entire id set.
+"""
+type DeletedRecord {
+  "The kind of entity that was deleted, e.g. \"scenes\", \"tags\", \"performers\"."
+  entity: String!
+  "The id the deleted entity had."
+  id: ID!
+  "When the entity was deleted."
+  deleted_at: Time!
+}
