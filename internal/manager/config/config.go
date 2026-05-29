@@ -164,6 +164,9 @@ const (
 	PluginsSettingPrefix = PluginsSetting + "."
 	DisabledPlugins      = "plugins.disabled"
 
+	// outbound webhooks: URLs notified (HTTP POST) on entity create/update/destroy events
+	WebhookURLs = "webhook_urls"
+
 	sourceDefaultPath = "community"
 	sourceDefaultName = "Community (stable)"
 
@@ -938,6 +941,12 @@ func (i *Config) SetPluginConfiguration(pluginID string, v map[string]interface{
 
 func (i *Config) GetDisabledPlugins() []string {
 	return i.getStringSlice(DisabledPlugins)
+}
+
+// GetWebhookURLs returns the configured outbound-webhook endpoints. Each is sent an HTTP POST with a
+// WebhookEvent whenever a tracked entity is created/updated/destroyed. Empty disables webhooks.
+func (i *Config) GetWebhookURLs() []string {
+	return i.getStringSlice(WebhookURLs)
 }
 
 func (i *Config) GetPythonPath() string {
