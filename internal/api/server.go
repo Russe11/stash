@@ -112,6 +112,14 @@ func Initialize() (*Server, error) {
 			Addr:      address,
 			Handler:   r,
 			TLSConfig: tlsConfig,
+			// Bound only the header-read phase: a slow-loris client that opens a
+			// connection and dribbles request headers forever otherwise pins a
+			// goroutine indefinitely. ReadHeaderTimeout does NOT cap body reads or
+			// response writes, so large uploads, range downloads, and long-lived
+			// streaming/subscriptions are unaffected (those rely on the hijack
+			// path below). A blanket Read/WriteTimeout WOULD break them, so we
+			// deliberately do not set those.
+			ReadHeaderTimeout: 30 * time.Second,
 			// disable http/2 support by default
 			// when http/2 is enabled, we are unable to hijack and close
 			// the connection/request. This is necessary to stop running
@@ -183,6 +191,11 @@ func Initialize() (*Server, error) {
 			CheckOrigin: func(r *http.Request) bool {
 				return true
 			},
+			// Tear down a half-open WebSocket upgrade that never completes its
+			// handshake instead of leaking the goroutine forever (the TCP/header
+			// timeouts above stop applying once the connection is hijacked for the
+			// upgrade).
+			HandshakeTimeout: 10 * time.Second,
 		},
 		KeepAlivePingInterval: 10 * time.Second,
 	})

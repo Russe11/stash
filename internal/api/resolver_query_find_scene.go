@@ -246,6 +246,39 @@ func (r *queryResolver) FindDuplicateScenes(ctx context.Context, distance *int, 
 	return ret, nil
 }
 
+// Upper bounds on findSimilarScenes inputs. A phash is a 64-bit value, so a
+// Hamming distance above 64 matches every scene; and an unbounded limit flows
+// straight into the SQL LIMIT, then into an in-memory FindMany of every matched
+// scene — a cheap way for one query to OOM the server. Clamp both at the API
+// boundary. The schema defaults (distance 10, limit 40) sit far below these, so
+// real "more like this" callers are unaffected.
+const (
+	maxSimilarDistance = 64
+	maxSimilarLimit    = 1000
+)
+
+func clampSimilarDistance(d int) int {
+	switch {
+	case d < 0:
+		return 0
+	case d > maxSimilarDistance:
+		return maxSimilarDistance
+	default:
+		return d
+	}
+}
+
+func clampSimilarLimit(l int) int {
+	switch {
+	case l < 0:
+		return 0
+	case l > maxSimilarLimit:
+		return maxSimilarLimit
+	default:
+		return l
+	}
+}
+
 func (r *queryResolver) FindSimilarScenes(ctx context.Context, sceneID string, distance *int, limit *int) (ret []*SimilarSceneResult, err error) {
 	id, err := strconv.Atoi(sceneID)
 	if err != nil {
@@ -262,6 +295,10 @@ func (r *queryResolver) FindSimilarScenes(ctx context.Context, sceneID string, d
 	if limit != nil {
 		lim = *limit
 	}
+	// Bound caller-supplied values so a hostile/buggy request can't request the
+	// whole library (see maxSimilar* above).
+	dist = clampSimilarDistance(dist)
+	lim = clampSimilarLimit(lim)
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		similar, err := r.repository.Scene.FindSimilar(ctx, id, dist, lim)
