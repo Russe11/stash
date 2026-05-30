@@ -16,20 +16,20 @@ Files:
 ## 1. Choose what to deploy
 
 `docker build` compiles **whatever branch is checked out** in the build context.
-The fork's features live on separate branches off `develop`:
+Build from **`deploy`** — it is the all-in-one branch with every fork feature already merged:
 
-- `develop` — merged server features: `moveFolder`, the deletion feed, recursive `Folder.scene_count` (this is what makes it schema **v86**).
-- `roadmap/webhooks` — outbound webhooks (`webhook_urls`).
-- `roadmap/folder-stats` — recursive `Folder.image_count` + `total_size`.
-
-If you want **everything** in one image, make a deploy branch first:
+- `moveFolder`, the deletion feed, and recursive `Folder.scene_count` (these make it schema **v86**),
+- outbound webhooks (`webhook_urls`),
+- recursive `Folder.image_count` + `total_size`,
+- the NG `deviceBus` (cross-device presence + remote control).
 
 ```bash
-git checkout -b deploy develop
-git merge --no-ff roadmap/webhooks roadmap/folder-stats
+git checkout deploy
 ```
 
-Otherwise just `git checkout develop` (or whichever single branch you want) before building.
+The older `develop` branch carries only the first group; the `roadmap/webhooks` and
+`roadmap/folder-stats` branches are already folded into `deploy`, so there is nothing to
+merge by hand anymore.
 
 ## 2. Build the image
 
