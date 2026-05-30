@@ -3,6 +3,7 @@ package session
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"net/http"
 
@@ -162,7 +163,12 @@ func (s *Store) Authenticate(w http.ResponseWriter, r *http.Request) (userID str
 		// match against configured API and set userID to the
 		// configured username. In future, we'll want to
 		// get the username from the key.
-		if c.GetAPIKey() != apiKey {
+		//
+		// Constant-time compare: this is the single credential protecting the
+		// whole library, so a plain != would leak it via a timing side-channel.
+		// ConstantTimeCompare also returns 0 on a length mismatch, so an empty
+		// configured key still rejects any presented key.
+		if subtle.ConstantTimeCompare([]byte(c.GetAPIKey()), []byte(apiKey)) != 1 {
 			return "", ErrUnauthorized
 		}
 
