@@ -373,6 +373,12 @@ func (c Cache) ExecutePostHooks(ctx context.Context, id int, hookType hook.Trigg
 	if c.config != nil {
 		dispatchWebhooks(c.config.GetWebhookURLs(), hookType, id)
 	}
+
+	// Publish the same event to in-process subscribers (the entityChanged GraphQL subscription).
+	// Reusing this single choke point keeps the real-time channel in lock-step with webhooks without
+	// adding hooks in N places. Publish is non-blocking (drops for any full/slow subscriber buffer),
+	// so it can never block or slow the mutation transaction.
+	EntityEvents.Publish(buildEntityEvent(hookType, id))
 }
 
 func (c Cache) RegisterPostHooks(ctx context.Context, id int, hookType hook.TriggerEnum, input interface{}, inputFields []string) {

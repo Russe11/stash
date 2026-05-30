@@ -33,6 +33,8 @@ models:
     model: github.com/stashapp/stash/internal/api.Timestamp
   BoolMap:
     model: github.com/stashapp/stash/internal/api.BoolMap
+  EntityChangeEvent:
+    model: github.com/stashapp/stash/internal/api.EntityChangeEvent
   PluginConfigMap:
     model: github.com/stashapp/stash/internal/api.PluginConfigMap
   File:

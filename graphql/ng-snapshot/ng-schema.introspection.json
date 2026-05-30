@@ -2167,6 +2167,29 @@
       ]
     },
     {
+      "kind": "OBJECT",
+      "name": "EntityChangeEvent",
+      "description": "NG-only. A metadata-only notification that a tracked top-level entity was created, updated, or\ndestroyed, delivered over the entityChanged subscription. It mirrors the outbound webhook payload:\nkind + id + operation + time ONLY — deliberately NO titles, paths, or other content (privacy + a\nsmall payload). To act on a change, a client refetches the entity by id (or prunes it on destroy).",
+      "fields": [
+        {
+          "name": "entity",
+          "type": "String!"
+        },
+        {
+          "name": "id",
+          "type": "ID!"
+        },
+        {
+          "name": "operation",
+          "type": "String!"
+        },
+        {
+          "name": "time",
+          "type": "Time!"
+        }
+      ]
+    },
+    {
       "kind": "INPUT_OBJECT",
       "name": "ExportObjectTypeInput",
       "inputFields": [
@@ -12225,6 +12248,16 @@
         {
           "name": "scanCompleteSubscribe",
           "type": "Boolean!"
+        },
+        {
+          "name": "entityChanged",
+          "type": "EntityChangeEvent!",
+          "args": [
+            {
+              "name": "types",
+              "type": "[String!]"
+            }
+          ]
         }
       ]
     },

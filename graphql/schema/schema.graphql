@@ -647,6 +647,16 @@ type Subscription {
   loggingSubscribe: [LogEntry!]!
 
   scanCompleteSubscribe: Boolean!
+
+  """
+  NG-only. A real-time stream of metadata-only entity change events (create/update/destroy),
+  published from the same post-commit choke point that drives outbound webhooks. Lets clients
+  react to library changes without polling. Optionally filter by entity kind via `types`
+  (e.g. ["Scene", "Tag"]); a nil/empty list streams all kinds. The payload carries no titles or
+  paths — clients refetch the changed entity by id (or prune it on destroy). Gate consumption on
+  serverCapabilities.features containing "entityChanged".
+  """
+  entityChanged(types: [String!]): EntityChangeEvent!
 }
 
 schema {

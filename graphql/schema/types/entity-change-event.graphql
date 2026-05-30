@@ -1,0 +1,16 @@
+"""
+NG-only. A metadata-only notification that a tracked top-level entity was created, updated, or
+destroyed, delivered over the entityChanged subscription. It mirrors the outbound webhook payload:
+kind + id + operation + time ONLY — deliberately NO titles, paths, or other content (privacy + a
+small payload). To act on a change, a client refetches the entity by id (or prunes it on destroy).
+"""
+type EntityChangeEvent {
+  "The entity kind that changed, e.g. \"Scene\", \"Tag\", \"Performer\", \"Gallery\", \"Image\", \"Studio\", \"Group\", \"SceneMarker\", \"GalleryChapter\"."
+  entity: String!
+  "The affected entity's id."
+  id: ID!
+  "The operation that occurred: \"Create\", \"Update\", or \"Destroy\"."
+  operation: String!
+  "When the change occurred."
+  time: Time!
+}
