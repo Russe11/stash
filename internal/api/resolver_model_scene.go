@@ -106,17 +106,18 @@ func (r *sceneResolver) Rating100(ctx context.Context, obj *models.Scene) (*int,
 func (r *sceneResolver) Paths(ctx context.Context, obj *models.Scene) (*ScenePathsType, error) {
 	baseURL, _ := ctx.Value(BaseURLCtxKey).(string)
 	config := manager.GetInstance().Config
+	apiKey := config.GetAPIKey()
 	builder := urlbuilders.NewSceneURLBuilder(baseURL, obj)
-	screenshotPath := builder.GetScreenshotURL()
-	previewPath := builder.GetStreamPreviewURL()
-	streamPath := builder.GetStreamURL(config.GetAPIKey()).String()
-	webpPath := builder.GetStreamPreviewImageURL()
+	screenshotPath := builder.GetScreenshotURL(apiKey)
+	previewPath := builder.GetStreamPreviewURL(apiKey)
+	streamPath := builder.GetStreamURL(apiKey).String()
+	webpPath := builder.GetStreamPreviewImageURL(apiKey)
 	objHash := obj.GetHash(config.GetVideoFileNamingAlgorithm())
-	vttPath := builder.GetSpriteVTTURL(objHash)
-	spritePath := builder.GetSpriteURL(objHash)
-	funscriptPath := builder.GetFunscriptURL(config.GetAPIKey()).String()
-	captionBasePath := builder.GetCaptionURL()
-	interactiveHeatmap := builder.GetInteractiveHeatmapURL()
+	vttPath := builder.GetSpriteVTTURL(objHash, apiKey)
+	spritePath := builder.GetSpriteURL(objHash, apiKey)
+	funscriptPath := builder.GetFunscriptURL(apiKey).String()
+	captionBasePath := builder.GetCaptionURL(apiKey)
+	interactiveHeatmap := builder.GetInteractiveHeatmapURL(apiKey)
 
 	return &ScenePathsType{
 		Screenshot:         &screenshotPath,
