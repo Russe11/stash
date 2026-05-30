@@ -310,10 +310,12 @@ func (r *queryResolver) Version(ctx context.Context) (*Version, error) {
 	}, nil
 }
 
-// ServerCapabilities reports the NG fork edition and its fork-only feature set
-// so clients can gate NG behaviour explicitly instead of probing individual
-// NG operations by trial-and-error. Original upstream Stash does not define
-// this query, so clients treat a "Cannot query field" error as upstream.
+// ServerCapabilities reports the NG fork edition, API version, and fork-only
+// feature set so NG clients can gate behaviour explicitly — checking
+// edition/apiVersion/features — instead of probing individual operations by
+// trial-and-error. This is the NG-to-NG version-skew handshake: a client that
+// cannot reach this query (or finds a feature absent) is talking to an
+// older/newer NG build, not to upstream Stash, which the clients do not target.
 func (r *queryResolver) ServerCapabilities(ctx context.Context) (*ServerCapabilities, error) {
 	return &ServerCapabilities{
 		Edition:                   build.Edition,
