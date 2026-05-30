@@ -1,10 +1,14 @@
 package plugin
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -48,7 +52,7 @@ func TestPostWebhookDeliversJSON(t *testing.T) {
 	defer srv.Close()
 
 	body, _ := json.Marshal(buildWebhookEvent(hook.TagDestroyPost, 7))
-	if err := postWebhook(srv.Client(), srv.URL, body); err != nil {
+	if err := postWebhook(srv.Client(), srv.URL, body, ""); err != nil {
 		t.Fatalf("postWebhook: %v", err)
 	}
 
@@ -74,7 +78,7 @@ func TestDispatchWebhooksFanOutAndSkipsBlanks(t *testing.T) {
 	defer srv.Close()
 
 	// two real URLs -> two deliveries; the blank entry is skipped (not 3 deliveries)
-	dispatchWebhooks([]string{srv.URL, "   ", srv.URL}, hook.SceneCreatePost, 99)
+	dispatchWebhooks([]string{srv.URL, "   ", srv.URL}, "", hook.SceneCreatePost, 99)
 
 	for i := 0; i < 2; i++ {
 		select {
@@ -97,8 +101,8 @@ func TestDispatchWebhooksFanOutAndSkipsBlanks(t *testing.T) {
 
 func TestDispatchWebhooksEmptyIsNoOp(t *testing.T) {
 	// must not panic and must return immediately when nothing is configured
-	dispatchWebhooks(nil, hook.SceneCreatePost, 1)
-	dispatchWebhooks([]string{}, hook.SceneCreatePost, 1)
+	dispatchWebhooks(nil, "", hook.SceneCreatePost, 1)
+	dispatchWebhooks([]string{}, "", hook.SceneCreatePost, 1)
 }
 
 func TestValidateWebhookURL(t *testing.T) {
@@ -148,7 +152,7 @@ func TestWebhookClientDoesNotFollowRedirects(t *testing.T) {
 
 	body, _ := json.Marshal(buildWebhookEvent(hook.SceneUpdatePost, 1))
 	// 302 is < 400, so postWebhook returns nil; the point is it must not chase the Location.
-	if err := postWebhook(webhookClient, redirector.URL, body); err != nil {
+	if err := postWebhook(webhookClient, redirector.URL, body, ""); err != nil {
 		t.Fatalf("postWebhook: %v", err)
 	}
 	select {
@@ -171,7 +175,7 @@ func TestDispatchWebhooksSkipsInvalidScheme(t *testing.T) {
 	defer srv.Close()
 
 	// the file:// URL is dropped; only the valid http URL delivers
-	dispatchWebhooks([]string{"file:///etc/passwd", srv.URL}, hook.SceneCreatePost, 5)
+	dispatchWebhooks([]string{"file:///etc/passwd", srv.URL}, "", hook.SceneCreatePost, 5)
 
 	select {
 	case e := <-received:
@@ -186,5 +190,91 @@ func TestDispatchWebhooksSkipsInvalidScheme(t *testing.T) {
 		t.Errorf("unexpected second delivery: %+v", e)
 	case <-time.After(200 * time.Millisecond):
 		// good — the invalid-scheme url produced nothing
+	}
+}
+
+func TestSignWebhook(t *testing.T) {
+	body := []byte(`{"type":"Scene.Update.Post"}`)
+
+	if got := signWebhook("", body); got != "" {
+		t.Errorf("no secret should yield empty signature, got %q", got)
+	}
+
+	const secret = "topsecret"
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(body)
+	want := "sha256=" + hex.EncodeToString(mac.Sum(nil))
+	if got := signWebhook(secret, body); got != want {
+		t.Errorf("signWebhook = %q, want %q", got, want)
+	}
+}
+
+func TestDispatchWebhooksSignsWhenSecretSet(t *testing.T) {
+	const secret = "shared-secret"
+	type capture struct {
+		sig  string
+		body []byte
+	}
+	got := make(chan capture, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		got <- capture{sig: r.Header.Get(signatureHeader), body: body}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	dispatchWebhooks([]string{srv.URL}, secret, hook.SceneUpdatePost, 3)
+
+	select {
+	case c := <-got:
+		mac := hmac.New(sha256.New, []byte(secret))
+		mac.Write(c.body)
+		want := "sha256=" + hex.EncodeToString(mac.Sum(nil))
+		if c.sig != want {
+			t.Errorf("X-Stash-Signature = %q, want %q (HMAC over the exact body)", c.sig, want)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected a signed delivery")
+	}
+}
+
+func TestPostWebhookRetriesOn5xx(t *testing.T) {
+	// shrink the backoff so the test is fast; restore after.
+	defer func(b time.Duration) { webhookRetryBackoff = b }(webhookRetryBackoff)
+	webhookRetryBackoff = time.Millisecond
+
+	var hits int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// fail the first two attempts with a 503, then succeed
+		if atomic.AddInt32(&hits, 1) < 3 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	if err := postWebhookWithRetry(srv.Client(), srv.URL, []byte("{}"), ""); err != nil {
+		t.Fatalf("expected eventual success, got %v", err)
+	}
+	if n := atomic.LoadInt32(&hits); n != 3 {
+		t.Errorf("expected 3 attempts (2 failures + success), got %d", n)
+	}
+}
+
+func TestPostWebhookNoRetryOn4xx(t *testing.T) {
+	var hits int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&hits, 1)
+		w.WriteHeader(http.StatusBadRequest) // permanent rejection
+	}))
+	defer srv.Close()
+
+	// a 4xx is not retried and is not surfaced as an error (logged only)
+	if err := postWebhookWithRetry(srv.Client(), srv.URL, []byte("{}"), ""); err != nil {
+		t.Fatalf("4xx should not be a retryable error, got %v", err)
+	}
+	if n := atomic.LoadInt32(&hits); n != 1 {
+		t.Errorf("expected exactly 1 attempt for a 4xx, got %d", n)
 	}
 }

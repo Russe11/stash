@@ -97,6 +97,7 @@ type ServerConfig interface {
 	GetDisabledPlugins() []string
 	GetPythonPath() string
 	GetWebhookURLs() []string
+	GetWebhookSecret() string
 }
 
 // Cache stores plugin details.
@@ -371,7 +372,7 @@ func (c Cache) ExecutePostHooks(ctx context.Context, id int, hookType hook.Trigg
 	// Notify any configured outbound webhooks of this entity event (best-effort, async). This is the
 	// single point every entity create/update/destroy flows through, so one call covers them all.
 	if c.config != nil {
-		dispatchWebhooks(c.config.GetWebhookURLs(), hookType, id)
+		dispatchWebhooks(c.config.GetWebhookURLs(), c.config.GetWebhookSecret(), hookType, id)
 	}
 
 	// Publish the same event to in-process subscribers (the entityChanged GraphQL subscription).

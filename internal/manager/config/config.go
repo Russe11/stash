@@ -177,6 +177,9 @@ const (
 
 	// outbound webhooks: URLs notified (HTTP POST) on entity create/update/destroy events
 	WebhookURLs = "webhook_urls"
+	// optional shared secret; when set, each webhook POST is signed with an
+	// HMAC-SHA256 X-Stash-Signature header so receivers can authenticate the sender
+	WebhookSecret = "webhook_secret"
 
 	sourceDefaultPath = "community"
 	sourceDefaultName = "Community (stable)"
@@ -958,6 +961,12 @@ func (i *Config) GetDisabledPlugins() []string {
 // WebhookEvent whenever a tracked entity is created/updated/destroyed. Empty disables webhooks.
 func (i *Config) GetWebhookURLs() []string {
 	return i.getStringSlice(WebhookURLs)
+}
+
+// GetWebhookSecret returns the optional shared secret used to sign outbound webhook payloads with an
+// HMAC-SHA256 X-Stash-Signature header. Empty means webhooks are sent unsigned.
+func (i *Config) GetWebhookSecret() string {
+	return i.getString(WebhookSecret)
 }
 
 func (i *Config) GetPythonPath() string {
