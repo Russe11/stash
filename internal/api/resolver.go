@@ -11,6 +11,7 @@ import (
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/stashapp/stash/internal/build"
 	"github.com/stashapp/stash/internal/manager"
+	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/logger"
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/plugin/hook"
@@ -44,6 +45,16 @@ type DeletedRecordReader interface {
 	MinDeletedRecordCursor(ctx context.Context) (minID int64, exists bool, err error)
 }
 
+// StashPathsReader is the seam for the configured library (stash) paths. The file-move mutations
+// (MoveFiles/MoveFolder) need them to reject destinations outside the library and to seed the file
+// mover's root-path set. The resolver reads them through this field instead of the manager
+// singleton, which has no exported setter. In production it is wired from mgr.Config in Initialize
+// (so it is the real config); tests inject a stub pointing at a throwaway temp library root, so a
+// move runs against a real DB + real filesystem without a full app bootstrap.
+type StashPathsReader interface {
+	GetStashPaths() config.StashConfigs
+}
+
 type Resolver struct {
 	repository     models.Repository
 	sceneService   manager.SceneService
@@ -52,6 +63,7 @@ type Resolver struct {
 	groupService   manager.GroupService
 
 	deletedRecordReader DeletedRecordReader
+	stashPaths          StashPathsReader
 
 	hookExecutor hookExecutor
 }

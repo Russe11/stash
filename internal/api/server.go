@@ -205,6 +205,7 @@ func Initialize() (*Server, error) {
 		galleryService:      galleryService,
 		groupService:        groupService,
 		deletedRecordReader: mgr.Database,
+		stashPaths:          mgr.Config,
 		hookExecutor:        pluginCache,
 	}
 

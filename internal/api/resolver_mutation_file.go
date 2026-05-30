@@ -21,7 +21,7 @@ func (r *mutationResolver) MoveFiles(ctx context.Context, input MoveFilesInput) 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		fileStore := r.repository.File
 		folderStore := r.repository.Folder
-		mover := file.NewMover(fileStore, folderStore, manager.GetInstance().Config.GetStashPaths().Paths())
+		mover := file.NewMover(fileStore, folderStore, r.stashPaths.GetStashPaths().Paths())
 		mover.RegisterHooks(ctx)
 
 		var (
@@ -59,7 +59,7 @@ func (r *mutationResolver) MoveFiles(ctx context.Context, input MoveFilesInput) 
 			folderPath := *input.DestinationFolder
 
 			// ensure folder path is within the library
-			stashPaths := manager.GetInstance().Config.GetStashPaths()
+			stashPaths := r.stashPaths.GetStashPaths()
 			if err := r.validateFolderPath(stashPaths, folderPath); err != nil {
 				return err
 			}
@@ -119,7 +119,7 @@ func (r *mutationResolver) MoveFolder(ctx context.Context, input MoveFolderInput
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		folderStore := r.repository.Folder
 		fileStore := r.repository.File
-		mover := file.NewMover(fileStore, folderStore, manager.GetInstance().Config.GetStashPaths().Paths())
+		mover := file.NewMover(fileStore, folderStore, r.stashPaths.GetStashPaths().Paths())
 		mover.RegisterHooks(ctx)
 
 		// find the source folder
@@ -154,7 +154,7 @@ func (r *mutationResolver) MoveFolder(ctx context.Context, input MoveFolderInput
 				return fmt.Errorf("cannot move into %s, is in a zip file", destParent.Path)
 			}
 		case input.DestinationFolder != nil:
-			stashPaths := manager.GetInstance().Config.GetStashPaths()
+			stashPaths := r.stashPaths.GetStashPaths()
 			if err := r.validateFolderPath(stashPaths, *input.DestinationFolder); err != nil {
 				return err
 			}

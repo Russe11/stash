@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stashapp/stash/internal/manager/config"
+	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/sqlite"
 
 	// register custom migrations so a fresh DB opens at the latest schema
@@ -244,5 +245,209 @@ func TestDeletedSinceResolverPrunedBoundary(t *testing.T) {
 	}
 	if pInitial.Pruned {
 		t.Errorf("expected pruned=false for initial sync (no after cursor)")
+	}
+}
+
+// stubStashPaths is an in-memory StashPathsReader pointing at one library root, so MoveFolder's
+// destination validation and the mover's root-path set resolve against the test's temp library
+// without a config/manager bootstrap — the whole point of the stashPaths seam.
+type stubStashPaths struct{ configs config.StashConfigs }
+
+func (s stubStashPaths) GetStashPaths() config.StashConfigs { return s.configs }
+
+// newMoveFolderTestResolver stands up a throwaway sqlite DB plus a real temp library root on disk and
+// returns a Resolver wired the way Initialize wires production: repository = db.Repository() (so
+// withTxn runs against real sqlite) and stashPaths = a stub pointing at the library root. The
+// returned libraryRoot is a real directory; callers create sub-directories + matching folder rows
+// under it with makeFolderOnDisk. No manager singleton / app bootstrap is involved.
+func newMoveFolderTestResolver(t *testing.T) (*Resolver, *sqlite.Database, string) {
+	t.Helper()
+
+	db := sqlite.NewDatabase()
+	dbPath := filepath.Join(t.TempDir(), "move_folder_test.sqlite")
+	if err := db.Open(dbPath); err != nil {
+		t.Fatalf("opening test database at %s: %v", dbPath, err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("closing test database: %v", err)
+		}
+	})
+
+	libraryRoot := filepath.Join(t.TempDir(), "library")
+	if err := os.MkdirAll(libraryRoot, 0o755); err != nil {
+		t.Fatalf("creating library root %s: %v", libraryRoot, err)
+	}
+
+	resolver := &Resolver{
+		repository: db.Repository(),
+		stashPaths: stubStashPaths{configs: config.StashConfigs{{Path: libraryRoot}}},
+	}
+	return resolver, db, libraryRoot
+}
+
+// makeFolderOnDisk creates a real directory at path and inserts a matching folder row (parent is nil
+// for a library root). It returns the created folder, whose ID has been assigned by the store.
+func makeFolderOnDisk(t *testing.T, db *sqlite.Database, path string, parent *models.FolderID) *models.Folder {
+	t.Helper()
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatalf("creating folder dir %s: %v", path, err)
+	}
+	folder := &models.Folder{
+		Path:           path,
+		ParentFolderID: parent,
+		DirEntry:       models.DirEntry{ModTime: time.Unix(0, 0).UTC()},
+	}
+	repo := db.Repository()
+	if err := repo.WithTxn(context.Background(), func(ctx context.Context) error {
+		return repo.Folder.Create(ctx, folder)
+	}); err != nil {
+		t.Fatalf("creating folder row %s: %v", path, err)
+	}
+	return folder
+}
+
+// reloadFolder re-reads a folder row by id in a fresh read txn, so assertions see the committed state
+// rather than the in-memory struct the mover mutated.
+func reloadFolder(t *testing.T, db *sqlite.Database, id models.FolderID) *models.Folder {
+	t.Helper()
+	repo := db.Repository()
+	var f *models.Folder
+	if err := repo.WithReadTxn(context.Background(), func(ctx context.Context) error {
+		var err error
+		f, err = repo.Folder.Find(ctx, id)
+		return err
+	}); err != nil {
+		t.Fatalf("reloading folder %d: %v", id, err)
+	}
+	return f
+}
+
+// TestMoveFolderResolverByIDEndToEnd drives the MoveFolder mutation resolver against a real sqlite DB
+// and a real filesystem through the stashPaths seam, asserting the by-id happy path: the folder row
+// is re-parented and its path rewritten, and the directory is actually renamed on disk.
+func TestMoveFolderResolverByIDEndToEnd(t *testing.T) {
+	resolver, db, libraryRoot := newMoveFolderTestResolver(t)
+	m := resolver.Mutation().(*mutationResolver)
+	ctx := context.Background()
+
+	// library/ (root) with two children: src/ (moved) and dst/ (destination parent).
+	lib := makeFolderOnDisk(t, db, libraryRoot, nil)
+	src := makeFolderOnDisk(t, db, filepath.Join(libraryRoot, "src"), &lib.ID)
+	dst := makeFolderOnDisk(t, db, filepath.Join(libraryRoot, "dst"), &lib.ID)
+
+	ok, err := m.MoveFolder(ctx, MoveFolderInput{
+		ID:                  src.ID.String(),
+		DestinationFolderID: strptr(dst.ID.String()),
+	})
+	if err != nil {
+		t.Fatalf("MoveFolder by id: %v", err)
+	}
+	if !ok {
+		t.Fatalf("MoveFolder returned ok=false without error")
+	}
+
+	wantPath := filepath.Join(libraryRoot, "dst", "src")
+	oldPath := filepath.Join(libraryRoot, "src")
+
+	// DB: the folder row now lives under dst with parent = dst.
+	moved := reloadFolder(t, db, src.ID)
+	if moved == nil {
+		t.Fatalf("moved folder %d not found after move", src.ID)
+	}
+	if moved.Path != wantPath {
+		t.Errorf("moved folder path = %q, want %q", moved.Path, wantPath)
+	}
+	if moved.ParentFolderID == nil || *moved.ParentFolderID != dst.ID {
+		t.Errorf("moved folder parent = %v, want %d", moved.ParentFolderID, dst.ID)
+	}
+
+	// Filesystem: the directory really moved.
+	if _, err := os.Stat(wantPath); err != nil {
+		t.Errorf("expected directory at new path %s: %v", wantPath, err)
+	}
+	if _, err := os.Stat(oldPath); !os.IsNotExist(err) {
+		t.Errorf("expected old path %s to be gone, stat err = %v", oldPath, err)
+	}
+}
+
+// TestMoveFolderResolverRejectsCycle covers the move-cycle guards: a folder cannot be moved into
+// itself, nor into one of its own descendants. Both are rejected before any filesystem mutation, so
+// the source directory must remain untouched.
+func TestMoveFolderResolverRejectsCycle(t *testing.T) {
+	resolver, db, libraryRoot := newMoveFolderTestResolver(t)
+	m := resolver.Mutation().(*mutationResolver)
+	ctx := context.Background()
+
+	// library/ -> parent/ -> child/
+	lib := makeFolderOnDisk(t, db, libraryRoot, nil)
+	parent := makeFolderOnDisk(t, db, filepath.Join(libraryRoot, "parent"), &lib.ID)
+	child := makeFolderOnDisk(t, db, filepath.Join(libraryRoot, "parent", "child"), &parent.ID)
+
+	// Moving parent into its own descendant child would create a cycle -> rejected.
+	ok, err := m.MoveFolder(ctx, MoveFolderInput{
+		ID:                  parent.ID.String(),
+		DestinationFolderID: strptr(child.ID.String()),
+	})
+	if err == nil {
+		t.Errorf("expected error moving folder into its own subtree, got nil")
+	}
+	if ok {
+		t.Errorf("MoveFolder returned ok=true on rejected cycle")
+	}
+
+	// Moving a folder into itself is likewise rejected.
+	okSelf, errSelf := m.MoveFolder(ctx, MoveFolderInput{
+		ID:                  parent.ID.String(),
+		DestinationFolderID: strptr(parent.ID.String()),
+	})
+	if errSelf == nil {
+		t.Errorf("expected error moving folder into itself, got nil")
+	}
+	if okSelf {
+		t.Errorf("MoveFolder returned ok=true on self-move")
+	}
+
+	// Both rejections happen before any rename: parent/ is still where it was, and its row is intact.
+	if _, statErr := os.Stat(filepath.Join(libraryRoot, "parent")); statErr != nil {
+		t.Errorf("parent dir should be untouched after rejected moves: %v", statErr)
+	}
+	reloaded := reloadFolder(t, db, parent.ID)
+	if reloaded == nil || reloaded.Path != filepath.Join(libraryRoot, "parent") {
+		t.Errorf("parent folder row should be untouched, got %v", reloaded)
+	}
+}
+
+// TestMoveFolderResolverRejectsOutOfLibrary asserts the move/relocate security boundary end-to-end: a
+// destination *path* outside any configured library is rejected. This drives the injected stashPaths
+// seam directly (the by-path branch reads r.stashPaths.GetStashPaths()).
+func TestMoveFolderResolverRejectsOutOfLibrary(t *testing.T) {
+	resolver, db, libraryRoot := newMoveFolderTestResolver(t)
+	m := resolver.Mutation().(*mutationResolver)
+	ctx := context.Background()
+
+	lib := makeFolderOnDisk(t, db, libraryRoot, nil)
+	src := makeFolderOnDisk(t, db, filepath.Join(libraryRoot, "src"), &lib.ID)
+
+	// A destination outside the (only) configured library path must be rejected.
+	outside := filepath.Join(t.TempDir(), "outside")
+	ok, err := m.MoveFolder(ctx, MoveFolderInput{
+		ID:                src.ID.String(),
+		DestinationFolder: strptr(outside),
+	})
+	if err == nil {
+		t.Errorf("expected error for out-of-library destination, got nil")
+	}
+	if ok {
+		t.Errorf("MoveFolder returned ok=true for out-of-library destination")
+	}
+
+	// src is untouched, in the filesystem and the DB.
+	if _, statErr := os.Stat(filepath.Join(libraryRoot, "src")); statErr != nil {
+		t.Errorf("src dir should be untouched after rejected move: %v", statErr)
+	}
+	reloaded := reloadFolder(t, db, src.ID)
+	if reloaded == nil || reloaded.Path != filepath.Join(libraryRoot, "src") {
+		t.Errorf("src folder row should be untouched, got %v", reloaded)
 	}
 }
