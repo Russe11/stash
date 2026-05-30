@@ -3,7 +3,9 @@ package plugin
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	neturl "net/url"
 	"strings"
 	"time"
 
@@ -28,8 +30,35 @@ type WebhookEvent struct {
 }
 
 // webhookClient is shared so connections are reused; the timeout keeps a slow/blackholed endpoint
-// from leaking goroutines forever.
-var webhookClient = &http.Client{Timeout: 10 * time.Second}
+// from leaking goroutines forever. Redirects are not followed: a webhook target must not be able
+// to bounce the server to a different (possibly internal) URL — a classic SSRF pivot. Returning
+// ErrUseLastResponse makes Do() surface the 3xx itself instead of chasing the Location.
+var webhookClient = &http.Client{
+	Timeout: 10 * time.Second,
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	},
+}
+
+// validateWebhookURL rejects a webhook target that isn't a plain http(s) URL with a host, returning
+// the normalized URL string on success. It deliberately does NOT block private/loopback hosts: this
+// is a LAN-first, single-user server whose most common webhook target is local home automation on a
+// private IP, and webhook_urls is operator-configured (low attacker-influence). What it does harden
+// is the scheme — rejecting file://, gopher://, and other SSRF-prone schemes that have no legitimate
+// webhook use — paired with the no-redirect policy on webhookClient above.
+func validateWebhookURL(url string) (string, error) {
+	u, err := neturl.Parse(url)
+	if err != nil {
+		return "", fmt.Errorf("invalid url %q: %w", url, err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return "", fmt.Errorf("url %q: unsupported scheme %q (only http/https)", url, u.Scheme)
+	}
+	if u.Host == "" {
+		return "", fmt.Errorf("url %q: missing host", url)
+	}
+	return u.String(), nil
+}
 
 // buildWebhookEvent constructs the payload for a hook trigger, splitting the trigger string into its
 // entity and operation parts (e.g. "Scene.Update.Post" -> entity "Scene", operation "Update").
@@ -87,8 +116,13 @@ func dispatchWebhooks(urls []string, hookType hook.TriggerEnum, id int) {
 	}
 
 	for _, raw := range urls {
-		url := strings.TrimSpace(raw)
-		if url == "" {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			continue
+		}
+		url, err := validateWebhookURL(trimmed)
+		if err != nil {
+			logger.Warnf("webhook: skipping configured url: %v", err)
 			continue
 		}
 		go func(url string) {
