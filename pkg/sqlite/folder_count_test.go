@@ -5,8 +5,98 @@ package sqlite_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
+
+	"github.com/stashapp/stash/pkg/models"
 )
+
+func depthLabel(d *int) string {
+	if d == nil {
+		return "nil"
+	}
+	return fmt.Sprintf("%d", *d)
+}
+
+// TestFolderCountInTreesMatchSingle is the correctness oracle for the batched dataloader path: for
+// every fixture folder (plus a non-existent id, which must yield 0) and a range of depths, the
+// batched CountScenesInTrees / CountImagesInTrees / TotalSizeInTrees must return exactly what the
+// per-folder CountScenesInTree / CountImagesInTree / TotalSizeInTree return. This pins the windowed
+// recursive CTE's per-root GROUP BY against the proven single-folder query.
+func TestFolderCountInTreesMatchSingle(t *testing.T) {
+	runWithRollbackTxn(t, "batched folder counts match single", func(t *testing.T, ctx context.Context) {
+		qb := db.Folder
+
+		ids := make([]models.FolderID, 0, totalFolders+1)
+		for i := 0; i < totalFolders; i++ {
+			ids = append(ids, folderIDs[i])
+		}
+		bogus := models.FolderID(999999) // not a real folder; every count must be 0
+		ids = append(ids, bogus)
+
+		depths := []*int{nil}
+		for d := 0; d <= 3; d++ {
+			dd := d
+			depths = append(depths, &dd)
+		}
+
+		for _, depth := range depths {
+			scenes, err := qb.CountScenesInTrees(ctx, ids, depth)
+			if err != nil {
+				t.Fatalf("CountScenesInTrees(depth=%s): %v", depthLabel(depth), err)
+			}
+			images, err := qb.CountImagesInTrees(ctx, ids, depth)
+			if err != nil {
+				t.Fatalf("CountImagesInTrees(depth=%s): %v", depthLabel(depth), err)
+			}
+			// Every requested id must have an entry (0 for empty/non-existent subtrees).
+			if len(scenes) != len(ids) || len(images) != len(ids) {
+				t.Fatalf("depth=%s: batched maps must have an entry per id (scenes=%d images=%d, want %d)",
+					depthLabel(depth), len(scenes), len(images), len(ids))
+			}
+
+			for _, id := range ids {
+				wantScenes, err := qb.CountScenesInTree(ctx, id, depth)
+				if err != nil {
+					t.Fatalf("CountScenesInTree(%d, %s): %v", id, depthLabel(depth), err)
+				}
+				if scenes[id] != wantScenes {
+					t.Errorf("scenes depth=%s id=%d: batched %d != single %d", depthLabel(depth), id, scenes[id], wantScenes)
+				}
+
+				wantImages, err := qb.CountImagesInTree(ctx, id, depth)
+				if err != nil {
+					t.Fatalf("CountImagesInTree(%d, %s): %v", id, depthLabel(depth), err)
+				}
+				if images[id] != wantImages {
+					t.Errorf("images depth=%s id=%d: batched %d != single %d", depthLabel(depth), id, images[id], wantImages)
+				}
+			}
+		}
+
+		sizes, err := qb.TotalSizeInTrees(ctx, ids)
+		if err != nil {
+			t.Fatalf("TotalSizeInTrees: %v", err)
+		}
+		if len(sizes) != len(ids) {
+			t.Fatalf("batched size map must have an entry per id (got %d, want %d)", len(sizes), len(ids))
+		}
+		for _, id := range ids {
+			want, err := qb.TotalSizeInTree(ctx, id)
+			if err != nil {
+				t.Fatalf("TotalSizeInTree(%d): %v", id, err)
+			}
+			if sizes[id] != want {
+				t.Errorf("size id=%d: batched %d != single %d", id, sizes[id], want)
+			}
+		}
+
+		// The non-existent id is the empty-subtree sentinel: 0 everywhere.
+		if sizes[bogus] != 0 {
+			t.Errorf("non-existent folder size = %d, want 0", sizes[bogus])
+		}
+	})
+}
 
 // TestFolderCountScenesInTree verifies the recursive scene count and its depth semantics against
 // the fixture hierarchy: scene files live in folderIdxWithSceneFiles, a child of

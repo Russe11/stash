@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 
 	"github.com/stashapp/stash/internal/api/loaders"
-	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/pkg/models"
 )
 
@@ -13,42 +12,29 @@ func (r *folderResolver) Basename(ctx context.Context, obj *models.Folder) (stri
 	return filepath.Base(obj.Path), nil
 }
 
-// SceneCount resolves the recursive scene count for a folder. It calls the concrete FolderStore
-// directly (rather than the FolderReaderWriter interface) so the count method doesn't widen the
-// interface or require regenerating mocks. depth is forwarded to the recursive query.
-func (r *folderResolver) SceneCount(ctx context.Context, obj *models.Folder, depth *int) (ret int, err error) {
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = manager.GetInstance().Database.Folder.CountScenesInTree(ctx, obj.ID, depth)
-		return err
-	}); err != nil {
-		return 0, err
-	}
-
-	return ret, nil
+// SceneCount resolves the recursive scene count for a folder. A folder-list view resolves this field
+// for every row, so it goes through a dataloader (keyed by folder + depth) that coalesces those into
+// one windowed query instead of one recursive CTE per folder. depth is normalized so all "unlimited"
+// callers share a cache key.
+func (r *folderResolver) SceneCount(ctx context.Context, obj *models.Folder, depth *int) (int, error) {
+	return loaders.From(ctx).FolderSceneCount.Load(loaders.FolderCountKey{
+		FolderID: obj.ID,
+		Depth:    loaders.NormalizeFolderDepth(depth),
+	})
 }
 
 // ImageCount resolves the recursive image count for a folder (image counterpart of SceneCount).
-func (r *folderResolver) ImageCount(ctx context.Context, obj *models.Folder, depth *int) (ret int, err error) {
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = manager.GetInstance().Database.Folder.CountImagesInTree(ctx, obj.ID, depth)
-		return err
-	}); err != nil {
-		return 0, err
-	}
-
-	return ret, nil
+func (r *folderResolver) ImageCount(ctx context.Context, obj *models.Folder, depth *int) (int, error) {
+	return loaders.From(ctx).FolderImageCount.Load(loaders.FolderCountKey{
+		FolderID: obj.ID,
+		Depth:    loaders.NormalizeFolderDepth(depth),
+	})
 }
 
-// TotalSize resolves the recursive total file size (bytes) of a folder's subtree.
-func (r *folderResolver) TotalSize(ctx context.Context, obj *models.Folder) (ret int64, err error) {
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = manager.GetInstance().Database.Folder.TotalSizeInTree(ctx, obj.ID)
-		return err
-	}); err != nil {
-		return 0, err
-	}
-
-	return ret, nil
+// TotalSize resolves the recursive total file size (bytes) of a folder's subtree, batched per request
+// (recursion is always unlimited, so the loader is keyed by folder id alone).
+func (r *folderResolver) TotalSize(ctx context.Context, obj *models.Folder) (int64, error) {
+	return loaders.From(ctx).FolderTotalSize.Load(obj.ID)
 }
 
 func (r *folderResolver) ParentFolder(ctx context.Context, obj *models.Folder) (*models.Folder, error) {

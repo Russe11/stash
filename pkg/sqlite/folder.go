@@ -599,6 +599,133 @@ SELECT COALESCE(SUM(files.size), 0) FROM files WHERE files.parent_folder_id IN (
 	return total, nil
 }
 
+// CountScenesInTrees is the batched form of CountScenesInTree: for each requested folder id it
+// returns the number of distinct scenes whose files live in that folder or (per depth) its
+// sub-folders, computed in a single windowed recursive query instead of one CTE per folder. depth
+// applies uniformly to every id (nil/<0 unlimited, 0 self, n levels) — the dataloader groups ids by
+// depth so that holds. The returned map has an entry for every requested id (0 when its subtree has
+// no scenes).
+func (qb *FolderStore) CountScenesInTrees(ctx context.Context, ids []models.FolderID, depth *int) (map[models.FolderID]int, error) {
+	return qb.countInTrees(ctx, "scenes_files", "scene_id", ids, depth)
+}
+
+// CountImagesInTrees is the image counterpart of CountScenesInTrees.
+func (qb *FolderStore) CountImagesInTrees(ctx context.Context, ids []models.FolderID, depth *int) (map[models.FolderID]int, error) {
+	return qb.countInTrees(ctx, "images_files", "image_id", ids, depth)
+}
+
+// countInTrees counts distinct <joinTable>.<idColumn> per requested root folder, recursively over
+// each root's subtree. The recursive CTE carries the originating root id, so one GROUP BY root_id
+// query yields a per-root count that matches the single-folder CountScenesInTree/CountImagesInTree
+// for every id. joinTable/idColumn are package-internal constants (never caller input), so the
+// fmt.Sprintf is not an injection vector.
+func (qb *FolderStore) countInTrees(ctx context.Context, joinTable, idColumn string, ids []models.FolderID, depth *int) (map[models.FolderID]int, error) {
+	result := make(map[models.FolderID]int, len(ids))
+	for _, id := range ids {
+		result[id] = 0
+	}
+	if len(ids) == 0 {
+		return result, nil
+	}
+
+	// depth limits the recursion just like the single-folder query: depth 0 yields `sub.lvl < 0`,
+	// admitting no descendants (the root only).
+	levelClause := ""
+	args := make([]interface{}, 0, len(ids)+1)
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	if depth != nil && *depth >= 0 {
+		levelClause = "WHERE sub.lvl < ?"
+		args = append(args, *depth)
+	}
+
+	query := fmt.Sprintf(`WITH RECURSIVE sub(root_id, id, lvl) AS (
+    SELECT id, id, 0 FROM folders WHERE id IN %[1]s
+    UNION ALL
+    SELECT sub.root_id, folders.id, sub.lvl + 1 FROM folders JOIN sub ON folders.parent_folder_id = sub.id %[2]s
+)
+SELECT sub.root_id, COUNT(DISTINCT %[3]s.%[4]s)
+FROM sub
+JOIN files ON files.parent_folder_id = sub.id
+JOIN %[3]s ON %[3]s.file_id = files.id
+GROUP BY sub.root_id`, getInBinding(len(ids)), levelClause, joinTable, idColumn)
+
+	wrapper := dbWrapperType{}
+	rows, err := wrapper.QueryxContext(ctx, query, args...)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("counting %s in folder trees: %w", joinTable, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			rootID int64
+			count  int
+		)
+		if err := rows.Scan(&rootID, &count); err != nil {
+			return nil, err
+		}
+		result[models.FolderID(rootID)] = count
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// TotalSizeInTrees is the batched form of TotalSizeInTree: the total file size (bytes) of each
+// requested folder's whole subtree, in one windowed recursive query. The returned map has an entry
+// for every requested id (0 when its subtree has no files).
+func (qb *FolderStore) TotalSizeInTrees(ctx context.Context, ids []models.FolderID) (map[models.FolderID]int64, error) {
+	result := make(map[models.FolderID]int64, len(ids))
+	for _, id := range ids {
+		result[id] = 0
+	}
+	if len(ids) == 0 {
+		return result, nil
+	}
+
+	args := make([]interface{}, 0, len(ids))
+	for _, id := range ids {
+		args = append(args, id)
+	}
+
+	query := fmt.Sprintf(`WITH RECURSIVE sub(root_id, id) AS (
+    SELECT id, id FROM folders WHERE id IN %[1]s
+    UNION ALL
+    SELECT sub.root_id, folders.id FROM folders JOIN sub ON folders.parent_folder_id = sub.id
+)
+SELECT sub.root_id, COALESCE(SUM(files.size), 0)
+FROM sub
+JOIN files ON files.parent_folder_id = sub.id
+GROUP BY sub.root_id`, getInBinding(len(ids)))
+
+	wrapper := dbWrapperType{}
+	rows, err := wrapper.QueryxContext(ctx, query, args...)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("summing file sizes in folder trees: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			rootID int64
+			total  int64
+		)
+		if err := rows.Scan(&rootID, &total); err != nil {
+			return nil, err
+		}
+		result[models.FolderID(rootID)] = total
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 // CountAllInPaths returns a count of all folders that are within any of the given paths.
 // Returns count of all folders if p is empty.
 func (qb *FolderStore) CountAllInPaths(ctx context.Context, p []string) (int, error) {

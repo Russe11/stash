@@ -20,10 +20,13 @@
 //go:generate go run github.com/vektah/dataloaden SceneOHistoryLoader int []time.Time
 //go:generate go run github.com/vektah/dataloaden ScenePlayHistoryLoader int []time.Time
 //go:generate go run github.com/vektah/dataloaden SceneLastPlayedLoader int *time.Time
+//go:generate go run github.com/vektah/dataloaden FolderCountLoader github.com/stashapp/stash/internal/api/loaders.FolderCountKey int
+//go:generate go run github.com/vektah/dataloaden FolderSizeLoader github.com/stashapp/stash/pkg/models.FolderID int64
 package loaders
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -40,6 +43,48 @@ const (
 	wait     = 1 * time.Millisecond
 	maxBatch = 100
 )
+
+// FolderCountKey keys the recursive folder-count dataloaders by (folder, depth) so calls with
+// different depth arguments in the same request don't collide in the cache. Depth is normalized via
+// NormalizeFolderDepth: any value < 0 means "unlimited" (matching CountScenesInTree's nil/<0
+// convention), so every "unlimited" caller shares one key.
+type FolderCountKey struct {
+	FolderID models.FolderID
+	Depth    int
+}
+
+// folderDepthUnlimited is the FolderCountKey.Depth sentinel for "no recursion limit".
+const folderDepthUnlimited = -1
+
+// NormalizeFolderDepth maps a resolver depth argument (*int) to a FolderCountKey.Depth: nil or any
+// negative value collapse to folderDepthUnlimited.
+func NormalizeFolderDepth(depth *int) int {
+	if depth == nil || *depth < 0 {
+		return folderDepthUnlimited
+	}
+	return *depth
+}
+
+// depthArg converts a normalized FolderCountKey.Depth back into the store's depth argument (nil for
+// unlimited).
+func depthArg(depth int) *int {
+	if depth < 0 {
+		return nil
+	}
+	return &depth
+}
+
+// folderTreeCounter is the subset of the concrete folder store the recursive-count loaders need. The
+// loaders type-assert the repository's folder reader to this interface so the batched methods don't
+// have to widen models.FolderReaderWriter (and regenerate its mocks) — mirroring how the folder
+// resolver reaches the concrete store directly.
+type folderTreeCounter interface {
+	CountScenesInTrees(ctx context.Context, ids []models.FolderID, depth *int) (map[models.FolderID]int, error)
+	CountImagesInTrees(ctx context.Context, ids []models.FolderID, depth *int) (map[models.FolderID]int, error)
+	TotalSizeInTrees(ctx context.Context, ids []models.FolderID) (map[models.FolderID]int64, error)
+}
+
+var errFolderCounterUnavailable = errors.New("folder store does not support batched tree counts")
 
 type Loaders struct {
 	SceneByID         *SceneLoader
@@ -79,6 +124,9 @@ type Loaders struct {
 	FolderByID            *FolderLoader
 	FolderParentFolderIDs *FolderRelatedFolderIDsLoader
 	FolderSubFolderIDs    *FolderRelatedFolderIDsLoader
+	FolderSceneCount      *FolderCountLoader
+	FolderImageCount      *FolderCountLoader
+	FolderTotalSize       *FolderSizeLoader
 }
 
 type Middleware struct {
@@ -194,6 +242,21 @@ func (m Middleware) Middleware(next http.Handler) http.Handler {
 				maxBatch: maxBatch,
 				fetch:    m.fetchFoldersSubFolderIDs(ctx),
 			},
+			FolderSceneCount: &FolderCountLoader{
+				wait:     wait,
+				maxBatch: maxBatch,
+				fetch:    m.fetchFolderSceneCounts(ctx),
+			},
+			FolderImageCount: &FolderCountLoader{
+				wait:     wait,
+				maxBatch: maxBatch,
+				fetch:    m.fetchFolderImageCounts(ctx),
+			},
+			FolderTotalSize: &FolderSizeLoader{
+				wait:     wait,
+				maxBatch: maxBatch,
+				fetch:    m.fetchFolderTotalSizes(ctx),
+			},
 			SceneFiles: &RelatedFileIDsLoader{
 				wait:     wait,
 				maxBatch: maxBatch,
@@ -251,6 +314,86 @@ func toErrorSlice(err error) []error {
 	}
 
 	return nil
+}
+
+func (m Middleware) fetchFolderSceneCounts(ctx context.Context) func(keys []FolderCountKey) ([]int, []error) {
+	return func(keys []FolderCountKey) ([]int, []error) {
+		return m.loadFolderCounts(ctx, keys, folderTreeCounter.CountScenesInTrees)
+	}
+}
+
+func (m Middleware) fetchFolderImageCounts(ctx context.Context) func(keys []FolderCountKey) ([]int, []error) {
+	return func(keys []FolderCountKey) ([]int, []error) {
+		return m.loadFolderCounts(ctx, keys, folderTreeCounter.CountImagesInTrees)
+	}
+}
+
+// loadFolderCounts batches the recursive per-folder scene/image counts. It groups the requested
+// folder ids by depth (a single GraphQL request applies the same depth arg to every folder in a
+// list, so this is normally one group) and issues one windowed query per distinct depth via the
+// supplied count method.
+func (m Middleware) loadFolderCounts(
+	ctx context.Context,
+	keys []FolderCountKey,
+	count func(folderTreeCounter, context.Context, []models.FolderID, *int) (map[models.FolderID]int, error),
+) ([]int, []error) {
+	store, ok := m.Repository.Folder.(folderTreeCounter)
+	if !ok {
+		return nil, toErrorSlice(errFolderCounterUnavailable)
+	}
+
+	byDepth := make(map[int][]models.FolderID)
+	for _, k := range keys {
+		byDepth[k.Depth] = append(byDepth[k.Depth], k.FolderID)
+	}
+
+	results := make(map[FolderCountKey]int, len(keys))
+	err := m.Repository.WithDB(ctx, func(ctx context.Context) error {
+		for depth, ids := range byDepth {
+			counts, err := count(store, ctx, ids, depthArg(depth))
+			if err != nil {
+				return err
+			}
+			for id, c := range counts {
+				results[FolderCountKey{FolderID: id, Depth: depth}] = c
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, toErrorSlice(err)
+	}
+
+	out := make([]int, len(keys))
+	for i, k := range keys {
+		out[i] = results[k] // missing -> 0 (the store pre-fills 0 for every requested id)
+	}
+	return out, nil
+}
+
+func (m Middleware) fetchFolderTotalSizes(ctx context.Context) func(keys []models.FolderID) ([]int64, []error) {
+	return func(keys []models.FolderID) ([]int64, []error) {
+		store, ok := m.Repository.Folder.(folderTreeCounter)
+		if !ok {
+			return nil, toErrorSlice(errFolderCounterUnavailable)
+		}
+
+		var sizes map[models.FolderID]int64
+		err := m.Repository.WithDB(ctx, func(ctx context.Context) error {
+			var err error
+			sizes, err = store.TotalSizeInTrees(ctx, keys)
+			return err
+		})
+		if err != nil {
+			return nil, toErrorSlice(err)
+		}
+
+		out := make([]int64, len(keys))
+		for i, id := range keys {
+			out[i] = sizes[id]
+		}
+		return out, nil
+	}
 }
 
 func (m Middleware) fetchScenes(ctx context.Context) func(keys []int) ([]*models.Scene, []error) {
