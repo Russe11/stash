@@ -165,6 +165,9 @@ type PlaybackStateInput struct {
 
 // DeviceCommandInput is the command payload for sendDeviceCommand.
 type DeviceCommandInput struct {
+	// FromDeviceID is the controller's own registered device id; the server stamps it onto the
+	// relayed DeviceCommandEvent.fromDeviceId so the target can TOFU-confirm per controller.
+	FromDeviceID   string            `json:"fromDeviceId"`
 	TargetDeviceID string            `json:"targetDeviceId"`
 	Type           DeviceCommandType `json:"type"`
 	SceneID        *string           `json:"sceneId"`

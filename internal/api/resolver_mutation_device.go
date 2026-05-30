@@ -50,8 +50,19 @@ func (r *mutationResolver) UpdatePlaybackState(ctx context.Context, input Playba
 // SendDeviceCommand relays a command from a controller to the target device's command stream.
 // Returns true if a live target subscriber received it (no subscriber == false). Ephemeral — the
 // command is fanned out, never persisted.
+//
+// FromDeviceID is the controller's own registered device id; the server stamps it onto the relayed
+// DeviceCommandEvent.fromDeviceId so the target can run per-controller TOFU (design §9). The wire
+// type is ID! and every client's decode guards a non-empty fromDeviceId, so a blank controller id is
+// rejected here (returns false) rather than relayed as "" and dropped client-side at decode.
 func (r *mutationResolver) SendDeviceCommand(ctx context.Context, input DeviceCommandInput) (bool, error) {
+	if input.FromDeviceID == "" {
+		// No controller identity — the relayed event would carry fromDeviceId == "" and every client
+		// would drop it at decode. Reject rather than emit an undeliverable command.
+		return false, nil
+	}
 	cmd := plugin.DeviceCommand{
+		FromDeviceID:   input.FromDeviceID,
 		TargetDeviceID: input.TargetDeviceID,
 		Type:           string(input.Type),
 		SceneID:        input.SceneID,
@@ -59,10 +70,6 @@ func (r *mutationResolver) SendDeviceCommand(ctx context.Context, input DeviceCo
 		StartSeconds:   input.StartSeconds,
 		SeekSeconds:    input.SeekSeconds,
 	}
-	// FromDeviceID is not in the input contract (the controller is implicit on a single-user
-	// server); leave it empty for now. Clients identify the controller out-of-band on first command
-	// (TOFU, design §9). Kept as a struct field so a future input arg can populate it without a
-	// broadcaster change.
 	delivered := plugin.DeviceCommands.PublishTo(cmd)
 	return delivered, nil
 }

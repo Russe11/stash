@@ -156,6 +156,7 @@ func TestDeviceCommandsTargetFiltering(t *testing.T) {
 	scene := "scene-9"
 	start := 12.5
 	delivered, err := mut.SendDeviceCommand(ctxA, DeviceCommandInput{
+		FromDeviceID:   "ctrl-1",
 		TargetDeviceID: "dev-A",
 		Type:           DeviceCommandTypePlay,
 		SceneID:        &scene,
@@ -168,6 +169,9 @@ func TestDeviceCommandsTargetFiltering(t *testing.T) {
 	ev := recvCommandEventWithin(t, outA, time.Second)
 	if ev.Type != DeviceCommandTypePlay || ev.SceneID == nil || *ev.SceneID != "scene-9" {
 		t.Errorf("dev-A command = %+v, want PLAY scene-9", ev)
+	}
+	if ev.FromDeviceID != "ctrl-1" {
+		t.Errorf("fromDeviceId = %q, want the controller id %q", ev.FromDeviceID, "ctrl-1")
 	}
 	if ev.StartSeconds == nil || *ev.StartSeconds != 12.5 {
 		t.Errorf("startSeconds = %v, want 12.5", ev.StartSeconds)
@@ -188,6 +192,7 @@ func TestSendDeviceCommandNoTargetReturnsFalse(t *testing.T) {
 
 	mut := &mutationResolver{}
 	delivered, err := mut.SendDeviceCommand(context.Background(), DeviceCommandInput{
+		FromDeviceID:   "ctrl-1",
 		TargetDeviceID: "nobody",
 		Type:           DeviceCommandTypeStop,
 	})
@@ -196,6 +201,80 @@ func TestSendDeviceCommandNoTargetReturnsFalse(t *testing.T) {
 	}
 	if delivered {
 		t.Error("SendDeviceCommand to a target with no subscriber = true, want false")
+	}
+}
+
+// TestSendDeviceCommandStampsFromDeviceId: the controller's own device id (input.fromDeviceId) is
+// stamped verbatim onto the relayed DeviceCommandEvent.fromDeviceId, so the target can run
+// per-controller TOFU. This is the fix for the §5 gap where fromDeviceId was always "" and every
+// client dropped the command at decode.
+func TestSendDeviceCommandStampsFromDeviceId(t *testing.T) {
+	isolateDeviceBus(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sub := &subscriptionResolver{}
+	out, err := sub.DeviceCommands(ctx, "tv-living-room")
+	if err != nil {
+		t.Fatalf("DeviceCommands error: %v", err)
+	}
+
+	mut := &mutationResolver{}
+	delivered, err := mut.SendDeviceCommand(ctx, DeviceCommandInput{
+		FromDeviceID:   "mac-controller",
+		TargetDeviceID: "tv-living-room",
+		Type:           DeviceCommandTypePause,
+	})
+	if err != nil || !delivered {
+		t.Fatalf("SendDeviceCommand = (%v, %v), want (true, nil)", delivered, err)
+	}
+
+	ev := recvCommandEventWithin(t, out, time.Second)
+	if ev.FromDeviceID == "" {
+		t.Fatal("relayed DeviceCommandEvent.fromDeviceId is empty — the §5 gap is back; clients will drop this at decode")
+	}
+	if ev.FromDeviceID != "mac-controller" {
+		t.Errorf("fromDeviceId = %q, want the controller id %q (input.fromDeviceId)", ev.FromDeviceID, "mac-controller")
+	}
+	if ev.Type != DeviceCommandTypePause {
+		t.Errorf("type = %v, want PAUSE", ev.Type)
+	}
+}
+
+// TestSendDeviceCommandRejectsEmptyFromDeviceId: a command with no controller identity is rejected
+// (returns false, no relay) rather than emitted with fromDeviceId == "" — which every client would
+// drop at decode anyway. The target subscriber must receive nothing.
+func TestSendDeviceCommandRejectsEmptyFromDeviceId(t *testing.T) {
+	isolateDeviceBus(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sub := &subscriptionResolver{}
+	out, err := sub.DeviceCommands(ctx, "tv-living-room")
+	if err != nil {
+		t.Fatalf("DeviceCommands error: %v", err)
+	}
+
+	mut := &mutationResolver{}
+	delivered, err := mut.SendDeviceCommand(ctx, DeviceCommandInput{
+		FromDeviceID:   "",
+		TargetDeviceID: "tv-living-room",
+		Type:           DeviceCommandTypePlay,
+	})
+	if err != nil {
+		t.Fatalf("SendDeviceCommand error: %v", err)
+	}
+	if delivered {
+		t.Error("SendDeviceCommand with empty fromDeviceId = true, want false (must not relay an undeliverable command)")
+	}
+
+	// The target must receive nothing — the command was never relayed.
+	select {
+	case e := <-out:
+		t.Errorf("target wrongly received %+v for an empty-fromDeviceId command", e)
+	case <-time.After(100 * time.Millisecond):
 	}
 }
 
@@ -334,7 +413,7 @@ func TestDeviceBusIsEphemeral_NoSQLite(t *testing.T) {
 	if _, err := mut.UpdatePlaybackState(ctx, PlaybackStateInput{DeviceID: "dev-1", SceneID: &scene, PositionSeconds: 1}); err != nil {
 		t.Fatalf("UpdatePlaybackState persisted/failed: %v", err)
 	}
-	if _, err := mut.SendDeviceCommand(ctx, DeviceCommandInput{TargetDeviceID: "dev-1", Type: DeviceCommandTypePlay, SceneID: &scene}); err != nil {
+	if _, err := mut.SendDeviceCommand(ctx, DeviceCommandInput{FromDeviceID: "ctrl-1", TargetDeviceID: "dev-1", Type: DeviceCommandTypePlay, SceneID: &scene}); err != nil {
 		t.Fatalf("SendDeviceCommand persisted/failed: %v", err)
 	}
 	// Drain the command we just sent so the buffer assertion elsewhere isn't affected.

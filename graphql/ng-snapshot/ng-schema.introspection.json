@@ -2178,6 +2178,10 @@
       "description": "A command from a controller to a target device, relayed by the server. IDs only — no titles.",
       "inputFields": [
         {
+          "name": "fromDeviceId",
+          "type": "ID!"
+        },
+        {
           "name": "targetDeviceId",
           "type": "ID!"
         },

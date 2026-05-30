@@ -288,6 +288,9 @@ func TestCommandBroadcasterTargetFiltering(t *testing.T) {
 	if got.Type != "PLAY" || got.TargetDeviceID != "dev-A" {
 		t.Errorf("dev-A got %+v, want PLAY/dev-A", got)
 	}
+	if got.FromDeviceID != "ctrl" {
+		t.Errorf("dev-A got fromDeviceId %q, want %q (the broadcaster must carry the controller id through)", got.FromDeviceID, "ctrl")
+	}
 
 	// dev-B must NOT have received the command.
 	select {
