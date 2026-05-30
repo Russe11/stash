@@ -131,6 +131,11 @@ func Initialize() (*Server, error) {
 	r.Use(middleware.Recoverer)
 
 	if cfg.GetLogAccess() {
+		// Strip the apikey credential out of the URI the access logger records.
+		// httplog logs r.RequestURI verbatim, so this must run before it; it
+		// only rewrites r.RequestURI (not r.URL), so auth and media-segment URL
+		// building still see the real key.
+		r.Use(redactAPIKeyAccessLog)
 		httpLogger := httplog.NewLogger("Stash", httplog.Options{
 			Concise: true,
 		})
