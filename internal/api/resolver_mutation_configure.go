@@ -391,6 +391,11 @@ func (r *mutationResolver) ConfigureGeneral(ctx context.Context, input ConfigGen
 		c.SetInterface(config.GalleryExtensions, input.GalleryExtensions)
 	}
 
+	// NG: outbound webhook targets — manageable via the API/UI instead of hand-editing config.yml.
+	if input.WebhookUrls != nil {
+		c.SetInterface(config.WebhookURLs, input.WebhookUrls)
+	}
+
 	r.setConfigBool(config.CreateGalleriesFromFolders, input.CreateGalleriesFromFolders)
 
 	if input.CustomPerformerImageLocation != nil {
