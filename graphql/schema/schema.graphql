@@ -312,6 +312,13 @@ type Query {
 
   # NG fork capability probe (absent on original upstream Stash)
   serverCapabilities: ServerCapabilities!
+
+  """
+  NG-only (deviceBus). The currently-online devices on the ephemeral presence bus (those whose
+  lastSeen is within the presence TTL). Backs the "send to device" picker and the online-devices
+  list. In-memory only — nothing here is persisted. Gate on features containing "deviceBus".
+  """
+  devices: [Device!]!
 }
 
 type Mutation {
@@ -638,6 +645,33 @@ type Mutation {
   addTempDLNAIP(input: AddTempDLNAIPInput!): Boolean!
   "Removes an IP address from the temporary DLNA whitelist"
   removeTempDLNAIP(input: RemoveTempDLNAIPInput!): Boolean!
+
+  """
+  NG-only (deviceBus). Registers (or refreshes) a device on the ephemeral presence bus and returns
+  its current Device record. Call on connect and as a heartbeat (~every 20s); each call upserts the
+  device and refreshes lastSeen so the sweeper does not evict it. In-memory only — not persisted.
+  """
+  registerDevice(input: DeviceInput!): Device!
+
+  """
+  NG-only (deviceBus). Removes a device from the presence bus on graceful exit and emits an OFFLINE
+  presence event. Returns true if the device was present. In-memory only.
+  """
+  unregisterDevice(deviceId: ID!): Boolean!
+
+  """
+  NG-only (deviceBus). Reports the calling device's live playback state (debounced ~2s by the
+  reporter) and emits a PLAYBACK presence event. Distinct from the persisted server-side resume
+  (sceneSaveActivity). Returns true if the device was registered. In-memory only.
+  """
+  updatePlaybackState(input: PlaybackStateInput!): Boolean!
+
+  """
+  NG-only (deviceBus). Relays a command from a controller to the target device's command stream
+  (the subscriber whose deviceCommands(deviceId:) == targetDeviceId). Returns true if a live target
+  subscriber received it. Ephemeral — the command is fanned out, never persisted.
+  """
+  sendDeviceCommand(input: DeviceCommandInput!): Boolean!
 }
 
 type Subscription {
@@ -657,6 +691,20 @@ type Subscription {
   serverCapabilities.features containing "entityChanged".
   """
   entityChanged(types: [String!]): EntityChangeEvent!
+
+  """
+  NG-only (deviceBus). A real-time stream of presence-bus changes: a device coming ONLINE, going
+  OFFLINE (graceful unregister or TTL eviction), or updating its PLAYBACK state. Ephemeral and
+  in-memory; payloads carry IDs not titles. Gate consumption on features containing "deviceBus".
+  """
+  devicePresence: DevicePresenceEvent!
+
+  """
+  NG-only (deviceBus). A target device subscribes here with its own deviceId to receive only the
+  commands addressed to it (sendDeviceCommand whose targetDeviceId == deviceId). Ephemeral fan-out;
+  the stream tears down on disconnect. Gate consumption on features containing "deviceBus".
+  """
+  deviceCommands(deviceId: ID!): DeviceCommandEvent!
 }
 
 schema {

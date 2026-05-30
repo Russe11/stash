@@ -135,6 +135,10 @@ func Initialize(cfg *config.Config, l *log.Logger) (*Manager, error) {
 		logger.Warnf("config file %snot found. Assuming new system...", cfgFile)
 	}
 
+	// Start the deviceBus presence sweeper: it evicts devices whose heartbeat lapsed (lastSeen
+	// older than the TTL) and emits OFFLINE. The registry is in-memory only — nothing is persisted.
+	plugin.DeviceBusRegistry.StartSweeper(plugin.DevicePresenceSweep)
+
 	instance = mgr
 	return mgr, nil
 }

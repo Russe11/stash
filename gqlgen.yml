@@ -35,6 +35,30 @@ models:
     model: github.com/stashapp/stash/internal/api.BoolMap
   EntityChangeEvent:
     model: github.com/stashapp/stash/internal/api.EntityChangeEvent
+  # deviceBus (NG): bind to the hand-written internal/api models so ids are strings and the
+  # autobind list (which includes pkg/plugin) can't grab a similarly-named registry struct.
+  DeviceKind:
+    model: github.com/stashapp/stash/internal/api.DeviceKind
+  DeviceCapability:
+    model: github.com/stashapp/stash/internal/api.DeviceCapability
+  PresenceChange:
+    model: github.com/stashapp/stash/internal/api.PresenceChange
+  DeviceCommandType:
+    model: github.com/stashapp/stash/internal/api.DeviceCommandType
+  Device:
+    model: github.com/stashapp/stash/internal/api.Device
+  PlaybackState:
+    model: github.com/stashapp/stash/internal/api.PlaybackState
+  DevicePresenceEvent:
+    model: github.com/stashapp/stash/internal/api.DevicePresenceEvent
+  DeviceCommandEvent:
+    model: github.com/stashapp/stash/internal/api.DeviceCommandEvent
+  DeviceInput:
+    model: github.com/stashapp/stash/internal/api.DeviceInput
+  PlaybackStateInput:
+    model: github.com/stashapp/stash/internal/api.PlaybackStateInput
+  DeviceCommandInput:
+    model: github.com/stashapp/stash/internal/api.DeviceCommandInput
   PluginConfigMap:
     model: github.com/stashapp/stash/internal/api.PluginConfigMap
   File:
