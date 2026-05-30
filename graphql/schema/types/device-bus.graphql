@@ -1,0 +1,110 @@
+# NG-only. The deviceBus types: an ephemeral, in-memory presence registry + command channel that
+# lets the apps see each other ("Living Room TV — playing X") and drive playback across devices
+# ("play this on the TV"). NOTHING here is persisted to SQLite — presence and commands live only in
+# process memory, scoped to the authenticated server session, and carry IDs (never titles) on the
+# wire. Gate all cross-device UI on serverCapabilities.features containing "deviceBus".
+
+"The kind of device registering on the bus."
+enum DeviceKind {
+  TV
+  DESKTOP
+  MOBILE
+  OTHER
+}
+
+"What a device is willing to do on the bus. PLAY = can be a playback target; CONTROL = can drive others."
+enum DeviceCapability {
+  PLAY
+  CONTROL
+}
+
+"A device registered on the presence bus (ephemeral, in-memory)."
+type Device {
+  id: ID!
+  name: String!
+  kind: DeviceKind!
+  capabilities: [DeviceCapability!]!
+  "True when lastSeen is within the presence TTL (a heartbeat arrived recently)."
+  online: Boolean!
+  "When the device last registered / heartbeated."
+  lastSeen: Time!
+  "The device's most recent reported playback state, if it has reported any."
+  playback: PlaybackState
+}
+
+"A device's live playback signal. Distinct from the persisted server-side resume (sceneSaveActivity)."
+type PlaybackState {
+  "The scene currently playing, if any. ID only — clients resolve the title locally."
+  sceneId: ID
+  positionSeconds: Float!
+  paused: Boolean!
+  updatedAt: Time!
+}
+
+"Registration payload. Call on connect and as a heartbeat (~every 20s) to refresh lastSeen."
+input DeviceInput {
+  id: ID!
+  name: String!
+  kind: DeviceKind!
+  capabilities: [DeviceCapability!]!
+}
+
+"Debounced (~2s) playback-state report from the reporting device."
+input PlaybackStateInput {
+  deviceId: ID!
+  sceneId: ID
+  positionSeconds: Float!
+  paused: Boolean!
+}
+
+"What kind of presence change a DevicePresenceEvent describes."
+enum PresenceChange {
+  ONLINE
+  OFFLINE
+  PLAYBACK
+}
+
+"A presence-bus event: a device came online, went offline, or updated its playback state."
+type DevicePresenceEvent {
+  device: Device!
+  kind: PresenceChange!
+}
+
+"The cross-device command verbs a controller can send to a target."
+enum DeviceCommandType {
+  PLAY
+  PAUSE
+  RESUME
+  SEEK
+  STOP
+  ENQUEUE
+  NEXT
+  PREV
+}
+
+"A command from a controller to a target device, relayed by the server. IDs only — no titles."
+input DeviceCommandInput {
+  "The controller sending the command (its own registered device id). The server stamps this onto the relayed DeviceCommandEvent.fromDeviceId so the target can TOFU-confirm per controller."
+  fromDeviceId: ID!
+  targetDeviceId: ID!
+  type: DeviceCommandType!
+  "The scene to play (PLAY)."
+  sceneId: ID
+  "The scenes to enqueue (ENQUEUE)."
+  sceneIds: [ID!]
+  "Start offset in seconds (PLAY)."
+  startSeconds: Float
+  "Seek target in seconds (SEEK)."
+  seekSeconds: Float
+}
+
+"A command delivered to a target device over its deviceCommands subscription."
+type DeviceCommandEvent {
+  "The controller that sent the command."
+  fromDeviceId: ID!
+  type: DeviceCommandType!
+  sceneId: ID
+  sceneIds: [ID!]
+  startSeconds: Float
+  seekSeconds: Float
+}

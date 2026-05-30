@@ -2107,6 +2107,180 @@
     },
     {
       "kind": "OBJECT",
+      "name": "Device",
+      "description": "A device registered on the presence bus (ephemeral, in-memory).",
+      "fields": [
+        {
+          "name": "id",
+          "type": "ID!"
+        },
+        {
+          "name": "name",
+          "type": "String!"
+        },
+        {
+          "name": "kind",
+          "type": "DeviceKind!"
+        },
+        {
+          "name": "capabilities",
+          "type": "[DeviceCapability!]!"
+        },
+        {
+          "name": "online",
+          "type": "Boolean!"
+        },
+        {
+          "name": "lastSeen",
+          "type": "Time!"
+        },
+        {
+          "name": "playback",
+          "type": "PlaybackState"
+        }
+      ]
+    },
+    {
+      "kind": "ENUM",
+      "name": "DeviceCapability",
+      "description": "What a device is willing to do on the bus. PLAY = can be a playback target; CONTROL = can drive others.",
+      "enumValues": [
+        "PLAY",
+        "CONTROL"
+      ]
+    },
+    {
+      "kind": "OBJECT",
+      "name": "DeviceCommandEvent",
+      "description": "A command delivered to a target device over its deviceCommands subscription.",
+      "fields": [
+        {
+          "name": "fromDeviceId",
+          "type": "ID!"
+        },
+        {
+          "name": "type",
+          "type": "DeviceCommandType!"
+        },
+        {
+          "name": "sceneId",
+          "type": "ID"
+        },
+        {
+          "name": "sceneIds",
+          "type": "[ID!]"
+        },
+        {
+          "name": "startSeconds",
+          "type": "Float"
+        },
+        {
+          "name": "seekSeconds",
+          "type": "Float"
+        }
+      ]
+    },
+    {
+      "kind": "INPUT_OBJECT",
+      "name": "DeviceCommandInput",
+      "description": "A command from a controller to a target device, relayed by the server. IDs only — no titles.",
+      "inputFields": [
+        {
+          "name": "fromDeviceId",
+          "type": "ID!"
+        },
+        {
+          "name": "targetDeviceId",
+          "type": "ID!"
+        },
+        {
+          "name": "type",
+          "type": "DeviceCommandType!"
+        },
+        {
+          "name": "sceneId",
+          "type": "ID"
+        },
+        {
+          "name": "sceneIds",
+          "type": "[ID!]"
+        },
+        {
+          "name": "startSeconds",
+          "type": "Float"
+        },
+        {
+          "name": "seekSeconds",
+          "type": "Float"
+        }
+      ]
+    },
+    {
+      "kind": "ENUM",
+      "name": "DeviceCommandType",
+      "description": "The cross-device command verbs a controller can send to a target.",
+      "enumValues": [
+        "PLAY",
+        "PAUSE",
+        "RESUME",
+        "SEEK",
+        "STOP",
+        "ENQUEUE",
+        "NEXT",
+        "PREV"
+      ]
+    },
+    {
+      "kind": "INPUT_OBJECT",
+      "name": "DeviceInput",
+      "description": "Registration payload. Call on connect and as a heartbeat (~every 20s) to refresh lastSeen.",
+      "inputFields": [
+        {
+          "name": "id",
+          "type": "ID!"
+        },
+        {
+          "name": "name",
+          "type": "String!"
+        },
+        {
+          "name": "kind",
+          "type": "DeviceKind!"
+        },
+        {
+          "name": "capabilities",
+          "type": "[DeviceCapability!]!"
+        }
+      ]
+    },
+    {
+      "kind": "ENUM",
+      "name": "DeviceKind",
+      "description": "The kind of device registering on the bus.",
+      "enumValues": [
+        "TV",
+        "DESKTOP",
+        "MOBILE",
+        "OTHER"
+      ]
+    },
+    {
+      "kind": "OBJECT",
+      "name": "DevicePresenceEvent",
+      "description": "A presence-bus event: a device came online, went offline, or updated its playback state.",
+      "fields": [
+        {
+          "name": "device",
+          "type": "Device!"
+        },
+        {
+          "name": "kind",
+          "type": "PresenceChange!"
+        }
+      ]
+    },
+    {
+      "kind": "OBJECT",
       "name": "Directory",
       "description": "Directory structure of a path",
       "fields": [
@@ -6888,6 +7062,46 @@
               "type": "RemoveTempDLNAIPInput!"
             }
           ]
+        },
+        {
+          "name": "registerDevice",
+          "type": "Device!",
+          "args": [
+            {
+              "name": "input",
+              "type": "DeviceInput!"
+            }
+          ]
+        },
+        {
+          "name": "unregisterDevice",
+          "type": "Boolean!",
+          "args": [
+            {
+              "name": "deviceId",
+              "type": "ID!"
+            }
+          ]
+        },
+        {
+          "name": "updatePlaybackState",
+          "type": "Boolean!",
+          "args": [
+            {
+              "name": "input",
+              "type": "PlaybackStateInput!"
+            }
+          ]
+        },
+        {
+          "name": "sendDeviceCommand",
+          "type": "Boolean!",
+          "args": [
+            {
+              "name": "input",
+              "type": "DeviceCommandInput!"
+            }
+          ]
         }
       ]
     },
@@ -7746,6 +7960,52 @@
     },
     {
       "kind": "OBJECT",
+      "name": "PlaybackState",
+      "description": "A device's live playback signal. Distinct from the persisted server-side resume (sceneSaveActivity).",
+      "fields": [
+        {
+          "name": "sceneId",
+          "type": "ID"
+        },
+        {
+          "name": "positionSeconds",
+          "type": "Float!"
+        },
+        {
+          "name": "paused",
+          "type": "Boolean!"
+        },
+        {
+          "name": "updatedAt",
+          "type": "Time!"
+        }
+      ]
+    },
+    {
+      "kind": "INPUT_OBJECT",
+      "name": "PlaybackStateInput",
+      "description": "Debounced (~2s) playback-state report from the reporting device.",
+      "inputFields": [
+        {
+          "name": "deviceId",
+          "type": "ID!"
+        },
+        {
+          "name": "sceneId",
+          "type": "ID"
+        },
+        {
+          "name": "positionSeconds",
+          "type": "Float!"
+        },
+        {
+          "name": "paused",
+          "type": "Boolean!"
+        }
+      ]
+    },
+    {
+      "kind": "OBJECT",
       "name": "Plugin",
       "fields": [
         {
@@ -7940,6 +8200,16 @@
           "name": "a",
           "type": "[PluginValueInput!]"
         }
+      ]
+    },
+    {
+      "kind": "ENUM",
+      "name": "PresenceChange",
+      "description": "What kind of presence change a DevicePresenceEvent describes.",
+      "enumValues": [
+        "ONLINE",
+        "OFFLINE",
+        "PLAYBACK"
       ]
     },
     {
@@ -8811,6 +9081,10 @@
         {
           "name": "serverCapabilities",
           "type": "ServerCapabilities!"
+        },
+        {
+          "name": "devices",
+          "type": "[Device!]!"
         },
         {
           "name": "__schema",
@@ -12264,6 +12538,20 @@
             {
               "name": "types",
               "type": "[String!]"
+            }
+          ]
+        },
+        {
+          "name": "devicePresence",
+          "type": "DevicePresenceEvent!"
+        },
+        {
+          "name": "deviceCommands",
+          "type": "DeviceCommandEvent!",
+          "args": [
+            {
+              "name": "deviceId",
+              "type": "ID!"
             }
           ]
         }

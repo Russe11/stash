@@ -1,7 +1,7 @@
 ---
 name: fixes
 description: Non-defect fixes — tech debt, contract hardening, code-quality adjustments
-updated: 2026-05-29
+updated: 2026-05-30
 ---
 
 # Fixes

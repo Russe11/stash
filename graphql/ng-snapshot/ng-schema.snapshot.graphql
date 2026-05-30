@@ -1282,6 +1282,113 @@ input DestroyFilterInput {
 	id: ID!
 }
 """
+A device registered on the presence bus (ephemeral, in-memory).
+"""
+type Device {
+	id: ID!
+	name: String!
+	kind: DeviceKind!
+	capabilities: [DeviceCapability!]!
+	"""
+	True when lastSeen is within the presence TTL (a heartbeat arrived recently).
+	"""
+	online: Boolean!
+	"""
+	When the device last registered / heartbeated.
+	"""
+	lastSeen: Time!
+	"""
+	The device's most recent reported playback state, if it has reported any.
+	"""
+	playback: PlaybackState
+}
+"""
+What a device is willing to do on the bus. PLAY = can be a playback target; CONTROL = can drive others.
+"""
+enum DeviceCapability {
+	PLAY
+	CONTROL
+}
+"""
+A command delivered to a target device over its deviceCommands subscription.
+"""
+type DeviceCommandEvent {
+	"""
+	The controller that sent the command.
+	"""
+	fromDeviceId: ID!
+	type: DeviceCommandType!
+	sceneId: ID
+	sceneIds: [ID!]
+	startSeconds: Float
+	seekSeconds: Float
+}
+"""
+A command from a controller to a target device, relayed by the server. IDs only — no titles.
+"""
+input DeviceCommandInput {
+	"""
+	The controller sending the command (its own registered device id). The server stamps this onto the relayed DeviceCommandEvent.fromDeviceId so the target can TOFU-confirm per controller.
+	"""
+	fromDeviceId: ID!
+	targetDeviceId: ID!
+	type: DeviceCommandType!
+	"""
+	The scene to play (PLAY).
+	"""
+	sceneId: ID
+	"""
+	The scenes to enqueue (ENQUEUE).
+	"""
+	sceneIds: [ID!]
+	"""
+	Start offset in seconds (PLAY).
+	"""
+	startSeconds: Float
+	"""
+	Seek target in seconds (SEEK).
+	"""
+	seekSeconds: Float
+}
+"""
+The cross-device command verbs a controller can send to a target.
+"""
+enum DeviceCommandType {
+	PLAY
+	PAUSE
+	RESUME
+	SEEK
+	STOP
+	ENQUEUE
+	NEXT
+	PREV
+}
+"""
+Registration payload. Call on connect and as a heartbeat (~every 20s) to refresh lastSeen.
+"""
+input DeviceInput {
+	id: ID!
+	name: String!
+	kind: DeviceKind!
+	capabilities: [DeviceCapability!]!
+}
+"""
+The kind of device registering on the bus.
+"""
+enum DeviceKind {
+	TV
+	DESKTOP
+	MOBILE
+	OTHER
+}
+"""
+A presence-bus event: a device came online, went offline, or updated its playback state.
+"""
+type DevicePresenceEvent {
+	device: Device!
+	kind: PresenceChange!
+}
+"""
 Directory structure of a path
 """
 type Directory {
@@ -3209,6 +3316,29 @@ type Mutation {
 	Removes an IP address from the temporary DLNA whitelist
 	"""
 	removeTempDLNAIP(input: RemoveTempDLNAIPInput!): Boolean!
+	"""
+	NG-only (deviceBus). Registers (or refreshes) a device on the ephemeral presence bus and returns
+	its current Device record. Call on connect and as a heartbeat (~every 20s); each call upserts the
+	device and refreshes lastSeen so the sweeper does not evict it. In-memory only — not persisted.
+	"""
+	registerDevice(input: DeviceInput!): Device!
+	"""
+	NG-only (deviceBus). Removes a device from the presence bus on graceful exit and emits an OFFLINE
+	presence event. Returns true if the device was present. In-memory only.
+	"""
+	unregisterDevice(deviceId: ID!): Boolean!
+	"""
+	NG-only (deviceBus). Reports the calling device's live playback state (debounced ~2s by the
+	reporter) and emits a PLAYBACK presence event. Distinct from the persisted server-side resume
+	(sceneSaveActivity). Returns true if the device was registered. In-memory only.
+	"""
+	updatePlaybackState(input: PlaybackStateInput!): Boolean!
+	"""
+	NG-only (deviceBus). Relays a command from a controller to the target device's command stream
+	(the subscriber whose deviceCommands(deviceId:) == targetDeviceId). Returns true if a live target
+	subscriber received it. Ephemeral — the command is fanned out, never persisted.
+	"""
+	sendDeviceCommand(input: DeviceCommandInput!): Boolean!
 }
 input OrientationCriterionInput {
 	value: [OrientationEnum!]!
@@ -3596,6 +3726,27 @@ input PhashDistanceCriterionInput {
 	modifier: CriterionModifier!
 	distance: Int
 }
+"""
+A device's live playback signal. Distinct from the persisted server-side resume (sceneSaveActivity).
+"""
+type PlaybackState {
+	"""
+	The scene currently playing, if any. ID only — clients resolve the title locally.
+	"""
+	sceneId: ID
+	positionSeconds: Float!
+	paused: Boolean!
+	updatedAt: Time!
+}
+"""
+Debounced (~2s) playback-state report from the reporting device.
+"""
+input PlaybackStateInput {
+	deviceId: ID!
+	sceneId: ID
+	positionSeconds: Float!
+	paused: Boolean!
+}
 type Plugin {
 	id: ID!
 	name: String!
@@ -3658,6 +3809,14 @@ input PluginValueInput {
 	f: Float
 	o: [PluginArgInput!]
 	a: [PluginValueInput!]
+}
+"""
+What kind of presence change a DevicePresenceEvent describes.
+"""
+enum PresenceChange {
+	ONLINE
+	OFFLINE
+	PLAYBACK
 }
 enum PreviewPreset {
 	"""
@@ -3965,6 +4124,12 @@ type Query {
 	version: Version!
 	latestversion: LatestVersion!
 	serverCapabilities: ServerCapabilities!
+	"""
+	NG-only (deviceBus). The currently-online devices on the ephemeral presence bus (those whose
+	lastSeen is within the presence TTL). Backs the "send to device" picker and the online-devices
+	list. In-memory only — nothing here is persisted. Gate on features containing "deviceBus".
+	"""
+	devices: [Device!]!
 }
 input RemoveTempDLNAIPInput {
 	address: String!
@@ -5681,6 +5846,18 @@ type Subscription {
 	serverCapabilities.features containing "entityChanged".
 	"""
 	entityChanged(types: [String!]): EntityChangeEvent!
+	"""
+	NG-only (deviceBus). A real-time stream of presence-bus changes: a device coming ONLINE, going
+	OFFLINE (graceful unregister or TTL eviction), or updating its PLAYBACK state. Ephemeral and
+	in-memory; payloads carry IDs not titles. Gate consumption on features containing "deviceBus".
+	"""
+	devicePresence: DevicePresenceEvent!
+	"""
+	NG-only (deviceBus). A target device subscribes here with its own deviceId to receive only the
+	commands addressed to it (sendDeviceCommand whose targetDeviceId == deviceId). Ephemeral fan-out;
+	the stream tears down on disconnect. Gate consumption on features containing "deviceBus".
+	"""
+	deviceCommands(deviceId: ID!): DeviceCommandEvent!
 }
 type SystemStatus {
 	databaseSchema: Int
