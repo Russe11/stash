@@ -22,6 +22,13 @@
 //go:generate go run github.com/vektah/dataloaden SceneLastPlayedLoader int *time.Time
 //go:generate go run github.com/vektah/dataloaden FolderCountLoader github.com/stashapp/stash/internal/api/loaders.FolderCountKey int
 //go:generate go run github.com/vektah/dataloaden FolderSizeLoader github.com/stashapp/stash/pkg/models.FolderID int64
+
+// dataloaden v0.3.0 (the latest release) has an unfixed bug (vektah/dataloaden#54): when a
+// loader's key/value type lives in the `time` package it emits a duplicate `"time"` import,
+// which fails to compile (`time redeclared in this block`). This trailing directive runs a
+// tiny stdlib-based pass that dedupes imports in the generated *_gen.go files, so
+// `go generate` is idempotent and the result builds. It is a no-op on already-clean files.
+//go:generate go run github.com/stashapp/stash/tools/fix-dataloaden-imports .
 package loaders
 
 import (
