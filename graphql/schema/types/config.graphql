@@ -173,6 +173,8 @@ input ConfigGeneralInput {
   excludes: [String!]
   "Array of file regexp to exclude from Image Scans"
   imageExcludes: [String!]
+  "NG: outbound webhook URLs notified (HTTP POST) on entity create/update/destroy"
+  webhookUrls: [String!]
   "Custom Performer Image Location"
   customPerformerImageLocation: String
   "Stash-box instances used for tagging"
@@ -323,6 +325,8 @@ type ConfigGeneralResult {
   excludes: [String!]!
   "Array of file regexp to exclude from Image Scans"
   imageExcludes: [String!]!
+  "NG: outbound webhook URLs notified (HTTP POST) on entity create/update/destroy"
+  webhookUrls: [String!]!
   "Custom Performer Image Location"
   customPerformerImageLocation: String
   "Stash-box instances used for tagging"

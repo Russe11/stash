@@ -1276,6 +1276,10 @@
           "type": "[String!]"
         },
         {
+          "name": "webhookUrls",
+          "type": "[String!]"
+        },
+        {
           "name": "customPerformerImageLocation",
           "type": "String"
         },
@@ -1535,6 +1539,10 @@
         },
         {
           "name": "imageExcludes",
+          "type": "[String!]!"
+        },
+        {
+          "name": "webhookUrls",
           "type": "[String!]!"
         },
         {

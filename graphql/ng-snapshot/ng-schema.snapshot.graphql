@@ -596,6 +596,10 @@ input ConfigGeneralInput {
 	"""
 	imageExcludes: [String!]
 	"""
+	NG: outbound webhook URLs notified (HTTP POST) on entity create/update/destroy
+	"""
+	webhookUrls: [String!]
+	"""
 	Custom Performer Image Location
 	"""
 	customPerformerImageLocation: String
@@ -857,6 +861,10 @@ type ConfigGeneralResult {
 	Array of file regexp to exclude from Image Scans
 	"""
 	imageExcludes: [String!]!
+	"""
+	NG: outbound webhook URLs notified (HTTP POST) on entity create/update/destroy
+	"""
+	webhookUrls: [String!]!
 	"""
 	Custom Performer Image Location
 	"""
