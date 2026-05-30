@@ -22,14 +22,5 @@ Running `go generate ./...` regenerates four committed loader files — `interna
 ### 2026-05-29 — webhook_urls is config-file-only (no GraphQL getter/setter)
 `webhook_urls` (`internal/manager/config/config.go:168`, `GetWebhookURLs` :946-949) has no field in `ConfigResult`/`ConfigGeneralInput` and no setter in `configureGeneral`, so neither the web UI nor any client can view or manage webhook targets — operators must hand-edit `config.yml`. Add it to `config.graphql` + the configure resolver. NG-only.
 
-### 2026-05-29 — apikey query param is written to the access log
-The key is accepted as `?apikey=` (`pkg/session/session.go:154-159`) and stream/funscript URLs append it (`internal/api/urlbuilders/scene.go:32-37,67-71`). When `log_access` is on, `httplog.RequestLogger` (`internal/api/server.go:133-138`) records `RequestURI` (with the query) as a sticky field emitted on every response, so the credential lands in stash's own access log (and proxy logs / history). Redact the `apikey` query param in the httplog config, or prefer header auth for media routes. Mixed upstream/NG (funscript apikey was upstream #6760).
-
-### 2026-05-29 — Non-constant-time API key comparison
-`pkg/session/session.go:165` uses `c.GetAPIKey() != apiKey` (plain compare) — a timing side-channel on the single credential protecting the whole library. Use `subtle.ConstantTimeCompare`. Upstream-inherited; minor.
-
 ### 2026-05-29 — Scene media URL apikey asymmetry
 Only `GetStreamURL`/`GetFunscriptURL` append `?apikey=` (`urlbuilders/scene.go`); screenshot/preview/sprite/vtt/caption/heatmap do not, so a client relying on the query-param channel 401s on those. Either append apikey consistently or document that header auth is required for non-stream media. Upstream-inherited.
-
-### 2026-05-29 — deletedSince contract: add id cursor + sub-second precision
-See bugs.md (same-second skip). The contract fix: add an opaque `id`-based cursor (`after`/`limit`) to `deletedSince`/`DeletedRecord` and/or store `deleted_at` as `RFC3339Nano`; add tombstone retention/prune. NG-only.
