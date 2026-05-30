@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/stashapp/stash/internal/build"
@@ -14,6 +15,7 @@ import (
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/plugin/hook"
 	"github.com/stashapp/stash/pkg/scraper"
+	"github.com/stashapp/stash/pkg/sqlite"
 )
 
 var (
@@ -32,12 +34,24 @@ type hookExecutor interface {
 	ExecutePostHooks(ctx context.Context, id int, hookType hook.TriggerEnum, input interface{}, inputFields []string)
 }
 
+// DeletedRecordReader is the read seam for the deletedSince tombstone feed. It is the subset of
+// *sqlite.Database the DeletedSince resolver needs — these methods are sqlite-only and absent from
+// models.Repository, so the resolver reads them through this field instead of the manager singleton.
+// In production it is wired from mgr.Database in Initialize (so behaviour is the real DB, byte for
+// byte); tests inject the real *sqlite.Database from a throwaway fixture without a full app bootstrap.
+type DeletedRecordReader interface {
+	GetDeletedSincePage(ctx context.Context, since *time.Time, after *int64, limit int) (sqlite.DeletedSincePage, error)
+	MinDeletedRecordCursor(ctx context.Context) (minID int64, exists bool, err error)
+}
+
 type Resolver struct {
 	repository     models.Repository
 	sceneService   manager.SceneService
 	imageService   manager.ImageService
 	galleryService manager.GalleryService
 	groupService   manager.GroupService
+
+	deletedRecordReader DeletedRecordReader
 
 	hookExecutor hookExecutor
 }

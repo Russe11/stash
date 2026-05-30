@@ -199,12 +199,13 @@ func Initialize() (*Server, error) {
 	galleryService := mgr.GalleryService
 	groupService := mgr.GroupService
 	resolver := &Resolver{
-		repository:     repo,
-		sceneService:   sceneService,
-		imageService:   imageService,
-		galleryService: galleryService,
-		groupService:   groupService,
-		hookExecutor:   pluginCache,
+		repository:          repo,
+		sceneService:        sceneService,
+		imageService:        imageService,
+		galleryService:      galleryService,
+		groupService:        groupService,
+		deletedRecordReader: mgr.Database,
+		hookExecutor:        pluginCache,
 	}
 
 	gqlSrv := gqlHandler.New(NewExecutableSchema(Config{Resolvers: resolver}))

@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/sqlite"
 )
@@ -22,7 +21,7 @@ import (
 // The result's `pruned` flag tells a caller whose `after` predates the retention horizon that it
 // must full-resync rather than trust this incremental feed.
 func (r *queryResolver) DeletedSince(ctx context.Context, since *time.Time, after *string, limit *int) (*DeletedSinceResult, error) {
-	db := manager.GetInstance().Database
+	reader := r.deletedRecordReader
 
 	afterID := parseDeletedSinceAfter(after)
 
@@ -38,11 +37,11 @@ func (r *queryResolver) DeletedSince(ctx context.Context, since *time.Time, afte
 	)
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
 		var err error
-		page, err = db.GetDeletedSincePage(ctx, since, afterID, lim)
+		page, err = reader.GetDeletedSincePage(ctx, since, afterID, lim)
 		if err != nil {
 			return err
 		}
-		minID, hasAny, err = db.MinDeletedRecordCursor(ctx)
+		minID, hasAny, err = reader.MinDeletedRecordCursor(ctx)
 		return err
 	}); err != nil {
 		return nil, err
