@@ -167,8 +167,6 @@ func (r *mutationResolver) MoveFolder(ctx context.Context, input MoveFolderInput
 		}
 
 		// prevent moving a folder into itself or its own subtree (a cycle).
-		// GetManyParentFolderIDs returns the destination's ancestors only (excluding itself), so
-		// the folder is an ancestor of the destination iff its id appears in that list.
 		if destParent.ID == folder.ID {
 			return fmt.Errorf("cannot move a folder into itself")
 		}
@@ -176,7 +174,7 @@ func (r *mutationResolver) MoveFolder(ctx context.Context, input MoveFolderInput
 		if err != nil {
 			return fmt.Errorf("getting destination folder ancestors: %w", err)
 		}
-		if len(ancestors) > 0 && slices.Contains(ancestors[0], folder.ID) {
+		if destinationInSourceSubtree(folder.ID, ancestors) {
 			return fmt.Errorf("cannot move a folder into its own subfolder")
 		}
 
@@ -196,6 +194,14 @@ func (r *mutationResolver) MoveFolder(ctx context.Context, input MoveFolderInput
 	}
 
 	return true, nil
+}
+
+// destinationInSourceSubtree reports whether the move destination lies inside the source folder's
+// own subtree (the source is an ancestor of the destination), which would create a cycle. destAncestors
+// is GetManyParentFolderIDs([destParentID]) — the destination's ancestors, excluding itself — so the
+// source is an ancestor iff its id appears in that list.
+func destinationInSourceSubtree(srcID models.FolderID, destAncestors [][]models.FolderID) bool {
+	return len(destAncestors) > 0 && slices.Contains(destAncestors[0], srcID)
 }
 
 func (r *mutationResolver) validateFolderPath(paths config.StashConfigs, folderPath string) error {

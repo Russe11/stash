@@ -24,16 +24,7 @@ import (
 func (r *queryResolver) DeletedSince(ctx context.Context, since *time.Time, after *string, limit *int) (*DeletedSinceResult, error) {
 	db := manager.GetInstance().Database
 
-	// Parse the opaque cursor. It is the autoincrement id rendered as a decimal string; an empty
-	// string means "no cursor" (fall back to since / beginning). A malformed cursor is treated as
-	// no cursor rather than an error so a corrupted client watermark degrades to a full re-read
-	// rather than a hard failure.
-	var afterID *int64
-	if after != nil && *after != "" {
-		if id, err := strconv.ParseInt(*after, 10, 64); err == nil {
-			afterID = &id
-		}
-	}
+	afterID := parseDeletedSinceAfter(after)
 
 	lim := 0
 	if limit != nil {
@@ -57,6 +48,31 @@ func (r *queryResolver) DeletedSince(ctx context.Context, since *time.Time, afte
 		return nil, err
 	}
 
+	return buildDeletedSinceResult(page, afterID, minID, hasAny), nil
+}
+
+// parseDeletedSinceAfter decodes the opaque `after` cursor — the tombstone table's autoincrement id
+// rendered as a decimal string — into an id, or nil when it is absent, empty, or malformed. A
+// malformed cursor degrades to "no cursor" (the resolver then falls back to `since`/the beginning)
+// rather than erroring, so a corrupted client watermark is non-fatal.
+func parseDeletedSinceAfter(after *string) *int64 {
+	if after == nil || *after == "" {
+		return nil
+	}
+	id, err := strconv.ParseInt(*after, 10, 64)
+	if err != nil {
+		return nil
+	}
+	return &id
+}
+
+// buildDeletedSinceResult maps a store page to the GraphQL DeletedSinceResult. It converts each
+// tombstone row, resolves the resume cursor (the page's last id when it advanced, otherwise the
+// caller's own cursor so an empty page never resets the watermark to 0 and replays the whole feed),
+// and sets `pruned` when the caller's cursor predates the oldest still-retained tombstone (so it must
+// full-resync). minID/hasAny come from MinDeletedRecordCursor; with no tombstones at all nothing is
+// pruned relative to the caller.
+func buildDeletedSinceResult(page sqlite.DeletedSincePage, afterID *int64, minID int64, hasAny bool) *DeletedSinceResult {
 	records := make([]*DeletedRecord, len(page.Records))
 	for i, rec := range page.Records {
 		records[i] = &DeletedRecord{
@@ -67,9 +83,6 @@ func (r *queryResolver) DeletedSince(ctx context.Context, since *time.Time, afte
 		}
 	}
 
-	// Resume cursor to persist. If this page advanced, use its last id; otherwise hold the
-	// caller's existing cursor (so an empty page does not reset the watermark to 0 and replay the
-	// whole feed next time).
 	nextCursor := ""
 	switch {
 	case page.NextCursor != 0:
@@ -78,9 +91,6 @@ func (r *queryResolver) DeletedSince(ctx context.Context, since *time.Time, afte
 		nextCursor = strconv.FormatInt(*afterID, 10)
 	}
 
-	// pruned: the caller supplied a cursor that is older than the oldest tombstone still retained,
-	// meaning tombstones were pruned out from under it. It must full-resync. (If there are no
-	// tombstones at all, nothing was pruned relative to this caller.)
 	pruned := afterID != nil && hasAny && *afterID < minID
 
 	return &DeletedSinceResult{
@@ -88,7 +98,7 @@ func (r *queryResolver) DeletedSince(ctx context.Context, since *time.Time, afte
 		Cursor:  nextCursor,
 		HasMore: page.HasMore,
 		Pruned:  pruned,
-	}, nil
+	}
 }
 
 // serverCapabilitiesDeletedSinceRetentionDays returns the advertised retention horizon (days) for

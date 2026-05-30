@@ -49,6 +49,46 @@ const (
 	playgroundEndpoint  = "/playground"
 )
 
+const (
+	// readHeaderTimeout bounds only the request-header read phase (a slow-loris guard against a
+	// client that opens a connection and dribbles headers forever). Body reads, response writes,
+	// and long-lived streams/subscriptions are deliberately left UNBOUNDED — a blanket
+	// Read/WriteTimeout would break large uploads, range downloads, and subscriptions.
+	readHeaderTimeout = 30 * time.Second
+	// wsHandshakeTimeout bounds the WebSocket upgrade handshake. The header timeout above stops
+	// applying once the connection is hijacked for the upgrade, so without this a half-open upgrade
+	// that never completes its handshake would leak a goroutine forever.
+	wsHandshakeTimeout = 10 * time.Second
+)
+
+// newAPIHTTPServer builds the embedded [http.Server] with the connection-phase timeout and http/2
+// disabled. Extracted so the timeout invariants stay unit-testable (server_test.go): only the header
+// read is bounded, while ReadTimeout/WriteTimeout/IdleTimeout stay zero so uploads, range downloads,
+// and long-lived streams/subscriptions are never cut off. http/2 is disabled (empty TLSNextProto)
+// because we must be able to hijack and close a connection to stop running streams when deleting a
+// scene file.
+func newAPIHTTPServer(address string, handler http.Handler, tlsConfig *tls.Config) http.Server {
+	return http.Server{
+		Addr:              address,
+		Handler:           handler,
+		TLSConfig:         tlsConfig,
+		ReadHeaderTimeout: readHeaderTimeout,
+		TLSNextProto:      make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
+	}
+}
+
+// newGraphQLWebsocketUpgrader builds the gorilla upgrader for the GraphQL subscriptions transport:
+// permissive origin (auth is enforced by the connection-init payload, not the Origin header) plus a
+// bounded handshake (see wsHandshakeTimeout).
+func newGraphQLWebsocketUpgrader() websocket.Upgrader {
+	return websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+		HandshakeTimeout: wsHandshakeTimeout,
+	}
+}
+
 type Server struct {
 	http.Server
 	displayAddress string
@@ -108,24 +148,7 @@ func Initialize() (*Server, error) {
 	r := chi.NewRouter()
 
 	server := &Server{
-		Server: http.Server{
-			Addr:      address,
-			Handler:   r,
-			TLSConfig: tlsConfig,
-			// Bound only the header-read phase: a slow-loris client that opens a
-			// connection and dribbles request headers forever otherwise pins a
-			// goroutine indefinitely. ReadHeaderTimeout does NOT cap body reads or
-			// response writes, so large uploads, range downloads, and long-lived
-			// streaming/subscriptions are unaffected (those rely on the hijack
-			// path below). A blanket Read/WriteTimeout WOULD break them, so we
-			// deliberately do not set those.
-			ReadHeaderTimeout: 30 * time.Second,
-			// disable http/2 support by default
-			// when http/2 is enabled, we are unable to hijack and close
-			// the connection/request. This is necessary to stop running
-			// streams when deleting a scene file.
-			TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
-		},
+		Server:         newAPIHTTPServer(address, r, tlsConfig),
 		displayAddress: displayAddress,
 		manager:        mgr,
 	}
@@ -187,16 +210,7 @@ func Initialize() (*Server, error) {
 	gqlSrv := gqlHandler.New(NewExecutableSchema(Config{Resolvers: resolver}))
 	gqlSrv.SetRecoverFunc(recoverFunc)
 	gqlSrv.AddTransport(gqlTransport.Websocket{
-		Upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool {
-				return true
-			},
-			// Tear down a half-open WebSocket upgrade that never completes its
-			// handshake instead of leaking the goroutine forever (the TCP/header
-			// timeouts above stop applying once the connection is hijacked for the
-			// upgrade).
-			HandshakeTimeout: 10 * time.Second,
-		},
+		Upgrader:              newGraphQLWebsocketUpgrader(),
 		KeepAlivePingInterval: 10 * time.Second,
 	})
 	gqlSrv.AddTransport(gqlTransport.Options{})
