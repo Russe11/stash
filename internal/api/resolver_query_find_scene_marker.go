@@ -49,5 +49,5 @@ func (r *queryResolver) AllSceneMarkers(ctx context.Context) (ret []*models.Scen
 		return nil, err
 	}
 
-	return ret, nil
+	return capAllResults("SceneMarkers", ret), nil
 }

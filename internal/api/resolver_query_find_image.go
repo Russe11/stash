@@ -132,5 +132,5 @@ func (r *queryResolver) AllImages(ctx context.Context) (ret []*models.Image, err
 		return nil, err
 	}
 
-	return ret, nil
+	return capAllResults("Images", ret), nil
 }

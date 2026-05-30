@@ -70,5 +70,5 @@ func (r *queryResolver) AllTags(ctx context.Context) (ret []*models.Tag, err err
 		return nil, err
 	}
 
-	return ret, nil
+	return capAllResults("Tags", ret), nil
 }

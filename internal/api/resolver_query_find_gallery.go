@@ -65,5 +65,5 @@ func (r *queryResolver) AllGalleries(ctx context.Context) (ret []*models.Gallery
 		return nil, err
 	}
 
-	return ret, nil
+	return capAllResults("Galleries", ret), nil
 }

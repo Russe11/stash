@@ -345,5 +345,5 @@ func (r *queryResolver) AllScenes(ctx context.Context) (ret []*models.Scene, err
 		return nil, err
 	}
 
-	return ret, nil
+	return capAllResults("Scenes", ret), nil
 }

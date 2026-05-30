@@ -65,5 +65,5 @@ func (r *queryResolver) AllMovies(ctx context.Context) (ret []*models.Group, err
 		return nil, err
 	}
 
-	return ret, nil
+	return capAllResults("Movies", ret), nil
 }

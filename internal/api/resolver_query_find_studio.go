@@ -66,5 +66,5 @@ func (r *queryResolver) AllStudios(ctx context.Context) (ret []*models.Studio, e
 		return nil, err
 	}
 
-	return ret, nil
+	return capAllResults("Studios", ret), nil
 }

@@ -73,5 +73,5 @@ func (r *queryResolver) AllPerformers(ctx context.Context) (ret []*models.Perfor
 		return nil, err
 	}
 
-	return ret, nil
+	return capAllResults("Performers", ret), nil
 }
