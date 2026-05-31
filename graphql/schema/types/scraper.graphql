@@ -99,7 +99,6 @@ type ScrapedScene {
 
   remote_site_id: String
   duration: Int
-  fingerprints: [StashBoxFingerprint!]
 }
 
 input ScrapedSceneInput {
@@ -163,20 +162,12 @@ input ScrapedImageInput {
 }
 
 input ScraperSourceInput {
-  "Index of the configured stash-box instance to use. Should be unset if scraper_id is set"
-  stash_box_index: Int @deprecated(reason: "use stash_box_endpoint")
-  "Stash-box endpoint"
-  stash_box_endpoint: String
-  "Scraper ID to scrape with. Should be unset if stash_box_endpoint/stash_box_index is set"
+  "Scraper ID to scrape with."
   scraper_id: ID
 }
 
 type ScraperSource {
-  "Index of the configured stash-box instance to use. Should be unset if scraper_id is set"
-  stash_box_index: Int @deprecated(reason: "use stash_box_endpoint")
-  "Stash-box endpoint"
-  stash_box_endpoint: String
-  "Scraper ID to scrape with. Should be unset if stash_box_endpoint/stash_box_index is set"
+  "Scraper ID to scrape with."
   scraper_id: ID
 }
 
@@ -256,67 +247,4 @@ input ScrapeSingleGroupInput {
   group_id: ID
   "Instructs to query by group fragment"
   group_input: ScrapedGroupInput
-}
-
-input StashBoxSceneQueryInput {
-  "Index of the configured stash-box instance to use"
-  stash_box_index: Int @deprecated(reason: "use stash_box_endpoint")
-  "Endpoint of the stash-box instance to use"
-  stash_box_endpoint: String
-  "Instructs query by scene fingerprints"
-  scene_ids: [ID!]
-  "Query by query string"
-  q: String
-}
-
-input StashBoxPerformerQueryInput {
-  "Index of the configured stash-box instance to use"
-  stash_box_index: Int @deprecated(reason: "use stash_box_endpoint")
-  "Endpoint of the stash-box instance to use"
-  stash_box_endpoint: String
-  "Instructs query by scene fingerprints"
-  performer_ids: [ID!]
-  "Query by query string"
-  q: String
-}
-
-type StashBoxPerformerQueryResult {
-  query: String!
-  results: [ScrapedPerformer!]!
-}
-
-type StashBoxFingerprint {
-  algorithm: String!
-  hash: String!
-  duration: Int!
-}
-
-"""
-Accepts either ids, or a combination of names and stash_ids.
-If none are set, then all existing items will be tagged.
-"""
-input StashBoxBatchTagInput {
-  "Stash endpoint to use for the tagging"
-  endpoint: Int @deprecated(reason: "use stash_box_endpoint")
-  "Endpoint of the stash-box instance to use"
-  stash_box_endpoint: String
-  "Fields to exclude when executing the tagging"
-  exclude_fields: [String!]
-  "Refresh items already tagged by StashBox if true. Only tag items with no StashBox tagging if false"
-  refresh: Boolean!
-  "If batch adding studios, should their parent studios also be created?"
-  createParent: Boolean!
-  """
-  IDs in stash of the items to update.
-  If set, names and stash_ids fields will be ignored.
-  """
-  ids: [ID!]
-  "Names of the items in the stash-box instance to search for and create"
-  names: [String!]
-  "Stash IDs of the items in the stash-box instance to search for and create"
-  stash_ids: [String!]
-  "IDs in stash of the performers to update"
-  performer_ids: [ID!] @deprecated(reason: "use ids")
-  "Names of the performers in the stash-box instance to search for and create"
-  performer_names: [String!] @deprecated(reason: "use names")
 }

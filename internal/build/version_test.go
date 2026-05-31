@@ -27,7 +27,7 @@ func TestNGAPIVersion(t *testing.T) {
 // strings; adding/removing/renaming one is a contract change shared with every client and the
 // NG-to-NG contract test, so this asserts the full set (order included) deliberately.
 func TestNGFeatures(t *testing.T) {
-	want := []string{"deletedSince", "moveFolder", "folderCounts", "webhooks", "similarScenes", "entityChanged", "deviceBus"}
+	want := []string{"deletedSince", "moveFolder", "folderCounts", "webhooks", "similarScenes", "entityChanged", "deviceBus", "viewerPreferences"}
 	got := NGFeatures()
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("NGFeatures() = %v, want %v", got, want)

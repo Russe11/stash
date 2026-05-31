@@ -58,9 +58,6 @@ import { goBackOrReplace } from "src/utils/history";
 import { FormattedDate } from "src/components/Shared/Date";
 import { StudioLogo } from "src/components/Shared/StudioLogo";
 
-const SubmitStashBoxDraft = lazyComponent(
-  () => import("src/components/Dialogs/SubmitDraft")
-);
 const ScenePlayer = lazyComponent(
   () => import("src/components/ScenePlayer/ScenePlayer")
 );
@@ -192,9 +189,6 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const [generateScreenshot] = useSceneGenerateScreenshot();
   const { configuration } = useConfigurationContext();
   const { showStudioText } = configuration?.ui ?? {};
-
-  const [showDraftModal, setShowDraftModal] = useState(false);
-  const boxes = configuration?.general?.stashBoxes ?? [];
 
   const [incrementO] = useSceneIncrementO(scene.id);
 
@@ -482,15 +476,6 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
         >
           <FormattedMessage id="actions.generate_thumb_default" />
         </Dropdown.Item>
-        {boxes.length > 0 && (
-          <Dropdown.Item
-            key="submit"
-            className="bg-secondary text-white"
-            onClick={() => setShowDraftModal(true)}
-          >
-            <FormattedMessage id="actions.submit_stash_box" />
-          </Dropdown.Item>
-        )}
         <Dropdown.Item
           key="merge-scene"
           className="bg-secondary text-white"
@@ -738,13 +723,6 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
           <Icon className="fa-fw" icon={getCollapseButtonIcon()} />
         </Button>
       </div>
-      <SubmitStashBoxDraft
-        type="scene"
-        boxes={boxes}
-        entity={scene}
-        show={showDraftModal}
-        onHide={() => setShowDraftModal(false)}
-      />
     </>
   );
 });

@@ -14,11 +14,7 @@ import (
 )
 
 type Source struct {
-	// Index of the configured stash-box instance to use. Should be unset if scraper_id is set
-	StashBoxIndex *int `json:"stash_box_index"`
-	// Stash-box endpoint
-	StashBoxEndpoint *string `json:"stash_box_endpoint"`
-	// Scraper ID to scrape with. Should be unset if stash_box_index is set
+	// Scraper ID to scrape with.
 	ScraperID *string `json:"scraper_id"`
 }
 

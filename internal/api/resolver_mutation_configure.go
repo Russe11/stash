@@ -403,13 +403,6 @@ func (r *mutationResolver) ConfigureGeneral(ctx context.Context, input ConfigGen
 		initCustomPerformerImages(*input.CustomPerformerImageLocation)
 	}
 
-	if input.StashBoxes != nil {
-		if err := c.ValidateStashBoxes(input.StashBoxes); err != nil {
-			return nil, err
-		}
-		c.SetInterface(config.StashBoxes, input.StashBoxes)
-	}
-
 	if input.PythonPath != nil {
 		r.setConfigString(config.PythonPath, input.PythonPath)
 	}
@@ -552,39 +545,6 @@ func (r *mutationResolver) ConfigureInterface(ctx context.Context, input ConfigI
 	}
 
 	return makeConfigInterfaceResult(), nil
-}
-
-func (r *mutationResolver) ConfigureDlna(ctx context.Context, input ConfigDLNAInput) (*ConfigDLNAResult, error) {
-	c := config.GetInstance()
-
-	r.setConfigString(config.DLNAServerName, input.ServerName)
-
-	if input.WhitelistedIPs != nil {
-		c.SetInterface(config.DLNADefaultIPWhitelist, input.WhitelistedIPs)
-	}
-
-	r.setConfigString(config.DLNAVideoSortOrder, input.VideoSortOrder)
-	r.setConfigInt(config.DLNAPort, input.Port)
-
-	refresh := false
-	if input.Enabled != nil {
-		c.SetBool(config.DLNADefaultEnabled, *input.Enabled)
-		refresh = true
-	}
-
-	if input.Interfaces != nil {
-		c.SetInterface(config.DLNAInterfaces, input.Interfaces)
-	}
-
-	if err := c.Write(); err != nil {
-		return makeConfigDLNAResult(), err
-	}
-
-	if refresh {
-		manager.GetInstance().RefreshDLNA()
-	}
-
-	return makeConfigDLNAResult(), nil
 }
 
 func (r *mutationResolver) ConfigureScraping(ctx context.Context, input ConfigScrapingInput) (*ConfigScrapingResult, error) {

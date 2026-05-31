@@ -2343,24 +2343,6 @@ export const queryScrapeSceneQueryFragment = (
     fetchPolicy: "network-only",
   });
 
-export const stashBoxSceneBatchQuery = (
-  sceneIds: string[],
-  stashBoxEndpoint: string
-) =>
-  client.query<GQL.ScrapeMultiScenesQuery, GQL.ScrapeMultiScenesQueryVariables>(
-    {
-      query: GQL.ScrapeMultiScenesDocument,
-      variables: {
-        source: {
-          stash_box_endpoint: stashBoxEndpoint,
-        },
-        input: {
-          scene_ids: sceneIds,
-        },
-      },
-    }
-  );
-
 export const useListPerformerScrapers = () =>
   GQL.useListPerformerScrapersQuery();
 
@@ -2399,101 +2381,6 @@ export const queryScrapePerformerURL = (url: string) =>
     query: GQL.ScrapePerformerUrlDocument,
     variables: { url },
     fetchPolicy: "network-only",
-  });
-
-export const stashBoxPerformerQuery = (
-  searchVal: string,
-  stashBoxEndpoint: string
-) =>
-  client.query<
-    GQL.ScrapeSinglePerformerQuery,
-    GQL.ScrapeSinglePerformerQueryVariables
-  >({
-    query: GQL.ScrapeSinglePerformerDocument,
-    variables: {
-      source: {
-        stash_box_endpoint: stashBoxEndpoint,
-      },
-      input: {
-        query: searchVal,
-      },
-    },
-    fetchPolicy: "network-only",
-  });
-
-export const stashBoxStudioQuery = (
-  query: string | null,
-  stashBoxEndpoint: string
-) =>
-  client.query<
-    GQL.ScrapeSingleStudioQuery,
-    GQL.ScrapeSingleStudioQueryVariables
-  >({
-    query: GQL.ScrapeSingleStudioDocument,
-    variables: {
-      source: {
-        stash_box_endpoint: stashBoxEndpoint,
-      },
-      input: {
-        query: query,
-      },
-    },
-    fetchPolicy: "network-only",
-  });
-
-export const stashBoxSceneQuery = (query: string, stashBoxEndpoint: string) =>
-  client.query<GQL.ScrapeSingleSceneQuery, GQL.ScrapeSingleSceneQueryVariables>(
-    {
-      query: GQL.ScrapeSingleSceneDocument,
-      variables: {
-        source: {
-          stash_box_endpoint: stashBoxEndpoint,
-        },
-        input: {
-          query: query,
-        },
-      },
-      fetchPolicy: "network-only",
-    }
-  );
-
-export const stashBoxTagQuery = (
-  query: string | null,
-  stashBoxEndpoint: string
-) =>
-  client.query<GQL.ScrapeSingleTagQuery, GQL.ScrapeSingleTagQueryVariables>({
-    query: GQL.ScrapeSingleTagDocument,
-    variables: {
-      source: {
-        stash_box_endpoint: stashBoxEndpoint,
-      },
-      input: {
-        query: query,
-      },
-    },
-    fetchPolicy: "network-only",
-  });
-
-export const mutateStashBoxBatchPerformerTag = (
-  input: GQL.StashBoxBatchTagInput
-) =>
-  client.mutate<GQL.StashBoxBatchPerformerTagMutation>({
-    mutation: GQL.StashBoxBatchPerformerTagDocument,
-    variables: { input },
-  });
-
-export const mutateStashBoxBatchStudioTag = (
-  input: GQL.StashBoxBatchTagInput
-) =>
-  client.mutate<GQL.StashBoxBatchStudioTagMutation>({
-    mutation: GQL.StashBoxBatchStudioTagDocument,
-    variables: { input },
-  });
-
-export const mutateStashBoxBatchTagTag = (input: GQL.StashBoxBatchTagInput) =>
-  client.mutate<GQL.StashBoxBatchTagTagMutation>({
-    mutation: GQL.StashBoxBatchTagTagDocument,
-    variables: { input },
   });
 
 export const useListGroupScrapers = () => GQL.useListGroupScrapersQuery();
@@ -2551,22 +2438,6 @@ export const queryScrapeImageURL = (url: string) =>
     fetchPolicy: "network-only",
   });
 
-export const mutateSubmitStashBoxSceneDraft = (
-  input: GQL.StashBoxDraftSubmissionInput
-) =>
-  client.mutate<GQL.SubmitStashBoxSceneDraftMutation>({
-    mutation: GQL.SubmitStashBoxSceneDraftDocument,
-    variables: { input },
-  });
-
-export const mutateSubmitStashBoxPerformerDraft = (
-  input: GQL.StashBoxDraftSubmissionInput
-) =>
-  client.mutate<GQL.SubmitStashBoxPerformerDraftMutation>({
-    mutation: GQL.SubmitStashBoxPerformerDraftDocument,
-    variables: { input },
-  });
-
 /// Configuration
 
 export const useConfiguration = () => GQL.useConfigurationQuery();
@@ -2583,11 +2454,6 @@ export const useLatestVersion = () =>
   GQL.useLatestVersionQuery({
     notifyOnNetworkStatusChange: true,
     errorPolicy: "ignore",
-  });
-
-export const useDLNAStatus = () =>
-  GQL.useDlnaStatusQuery({
-    fetchPolicy: "no-cache",
   });
 
 export const useJobQueue = () =>
@@ -2748,23 +2614,10 @@ export const useConfigureScraping = () =>
     update: updateConfiguration,
   });
 
-export const useConfigureDLNA = () =>
-  GQL.useConfigureDlnaMutation({
-    update: updateConfiguration,
-  });
-
 export const useConfigurePlugin = () =>
   GQL.useConfigurePluginMutation({
     update: updateConfiguration,
   });
-
-export const useEnableDLNA = () => GQL.useEnableDlnaMutation();
-
-export const useDisableDLNA = () => GQL.useDisableDlnaMutation();
-
-export const useAddTempDLNAIP = () => GQL.useAddTempDlnaipMutation();
-
-export const useRemoveTempDLNAIP = () => GQL.useRemoveTempDlnaipMutation();
 
 export const mutateStopJob = (jobID: string) =>
   client.mutate<GQL.StopJobMutation>({

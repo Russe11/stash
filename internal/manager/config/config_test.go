@@ -32,3 +32,13 @@ func TestConfig_GetAllPluginConfiguration(t *testing.T) {
 		"plugin2": {"key3": "value3"},
 	}, i.GetAllPluginConfiguration())
 }
+
+func TestConfig_StashTVHomeExcludedTagIDs(t *testing.T) {
+	i := InitializeEmpty()
+
+	assert.Equal(t, []string{}, i.GetStashTVHomeExcludedTagIDs())
+
+	i.SetStashTVHomeExcludedTagIDs([]string{"3", "1", "3", "", " 2 "})
+
+	assert.Equal(t, []string{"3", "1", "2"}, i.GetStashTVHomeExcludedTagIDs())
+}

@@ -3,7 +3,6 @@ declare namespace PluginApi {
   const ReactDOM: typeof import("react-dom");
   namespace GQL {
     const AddGalleryImagesDocument: { [key: string]: any };
-    const AddTempDlnaipDocument: { [key: string]: any };
     const AnonymiseDatabaseDocument: { [key: string]: any };
     const AvailablePluginPackagesDocument: { [key: string]: any };
     const AvailableScraperPackagesDocument: { [key: string]: any };
@@ -18,13 +17,11 @@ declare namespace PluginApi {
     const CircumcisedEnum: { [key: string]: any };
     const ConfigDataFragmentDoc: { [key: string]: any };
     const ConfigDefaultSettingsDataFragmentDoc: { [key: string]: any };
-    const ConfigDlnaDataFragmentDoc: { [key: string]: any };
     const ConfigGeneralDataFragmentDoc: { [key: string]: any };
     const ConfigInterfaceDataFragmentDoc: { [key: string]: any };
     const ConfigScrapingDataFragmentDoc: { [key: string]: any };
     const ConfigurationDocument: { [key: string]: any };
     const ConfigureDefaultsDocument: { [key: string]: any };
-    const ConfigureDlnaDocument: { [key: string]: any };
     const ConfigureGeneralDocument: { [key: string]: any };
     const ConfigureInterfaceDocument: { [key: string]: any };
     const ConfigurePluginDocument: { [key: string]: any };
@@ -34,9 +31,6 @@ declare namespace PluginApi {
     const DeleteFilesDocument: { [key: string]: any };
     const DestroySavedFilterDocument: { [key: string]: any };
     const DirectoryDocument: { [key: string]: any };
-    const DisableDlnaDocument: { [key: string]: any };
-    const DlnaStatusDocument: { [key: string]: any };
-    const EnableDlnaDocument: { [key: string]: any };
     const ExportObjectsDocument: { [key: string]: any };
     const FilterMode: { [key: string]: any };
     const FindDuplicateScenesDocument: { [key: string]: any };
@@ -151,7 +145,6 @@ declare namespace PluginApi {
     const ReloadPluginsDocument: { [key: string]: any };
     const ReloadScrapersDocument: { [key: string]: any };
     const RemoveGalleryImagesDocument: { [key: string]: any };
-    const RemoveTempDlnaipDocument: { [key: string]: any };
     const ResolutionEnum: { [key: string]: any };
     const RunPluginTaskDocument: { [key: string]: any };
     const SaveFilterDocument: { [key: string]: any };
@@ -198,8 +191,6 @@ declare namespace PluginApi {
     const ScrapedScenePerformerDataFragmentDoc: { [key: string]: any };
     const ScrapedSceneStudioDataFragmentDoc: { [key: string]: any };
     const ScrapedSceneTagDataFragmentDoc: { [key: string]: any };
-    const ScrapedStashBoxPerformerDataFragmentDoc: { [key: string]: any };
-    const ScrapedStashBoxSceneDataFragmentDoc: { [key: string]: any };
     const ScrapedStudioDataFragmentDoc: { [key: string]: any };
     const ScraperSourceDataFragmentDoc: { [key: string]: any };
     const SelectGalleryDataFragmentDoc: { [key: string]: any };
@@ -217,8 +208,6 @@ declare namespace PluginApi {
     const SlimStudioDataFragmentDoc: { [key: string]: any };
     const SlimTagDataFragmentDoc: { [key: string]: any };
     const SortDirectionEnum: { [key: string]: any };
-    const StashBoxBatchPerformerTagDocument: { [key: string]: any };
-    const StashBoxBatchStudioTagDocument: { [key: string]: any };
     const StatsDocument: { [key: string]: any };
     const StopAllJobsDocument: { [key: string]: any };
     const StopJobDocument: { [key: string]: any };
@@ -228,9 +217,6 @@ declare namespace PluginApi {
     const StudioDestroyDocument: { [key: string]: any };
     const StudioUpdateDocument: { [key: string]: any };
     const StudiosDestroyDocument: { [key: string]: any };
-    const SubmitStashBoxFingerprintsDocument: { [key: string]: any };
-    const SubmitStashBoxPerformerDraftDocument: { [key: string]: any };
-    const SubmitStashBoxSceneDraftDocument: { [key: string]: any };
     const SystemStatusDocument: { [key: string]: any };
     const SystemStatusEnum: { [key: string]: any };
     const TagCreateDocument: { [key: string]: any };
@@ -243,7 +229,6 @@ declare namespace PluginApi {
     const UninstallScraperPackagesDocument: { [key: string]: any };
     const UpdatePluginPackagesDocument: { [key: string]: any };
     const UpdateScraperPackagesDocument: { [key: string]: any };
-    const ValidateStashBoxDocument: { [key: string]: any };
     const VersionDocument: { [key: string]: any };
     const VideoFileDataFragmentDoc: { [key: string]: any };
     const VisualFileDataFragmentDoc: { [key: string]: any };
@@ -251,7 +236,6 @@ declare namespace PluginApi {
     function refetchAvailableScraperPackagesQuery(...args: any[]): any;
     function refetchConfigurationQuery(...args: any[]): any;
     function refetchDirectoryQuery(...args: any[]): any;
-    function refetchDlnaStatusQuery(...args: any[]): any;
     function refetchFindDuplicateScenesQuery(...args: any[]): any;
     function refetchFindGalleriesForSelectQuery(...args: any[]): any;
     function refetchFindGalleriesQuery(...args: any[]): any;
@@ -308,10 +292,8 @@ declare namespace PluginApi {
     function refetchScrapeSingleStudioQuery(...args: any[]): any;
     function refetchStatsQuery(...args: any[]): any;
     function refetchSystemStatusQuery(...args: any[]): any;
-    function refetchValidateStashBoxQuery(...args: any[]): any;
     function refetchVersionQuery(...args: any[]): any;
     function useAddGalleryImagesMutation(...args: any[]): any;
-    function useAddTempDlnaipMutation(...args: any[]): any;
     function useAnonymiseDatabaseMutation(...args: any[]): any;
     function useAvailablePluginPackagesLazyQuery(...args: any[]): any;
     function useAvailablePluginPackagesQuery(...args: any[]): any;
@@ -329,7 +311,6 @@ declare namespace PluginApi {
     function useConfigurationQuery(...args: any[]): any;
     function useConfigurationSuspenseQuery(...args: any[]): any;
     function useConfigureDefaultsMutation(...args: any[]): any;
-    function useConfigureDlnaMutation(...args: any[]): any;
     function useConfigureGeneralMutation(...args: any[]): any;
     function useConfigureInterfaceMutation(...args: any[]): any;
     function useConfigurePluginMutation(...args: any[]): any;
@@ -340,11 +321,6 @@ declare namespace PluginApi {
     function useDirectoryLazyQuery(...args: any[]): any;
     function useDirectoryQuery(...args: any[]): any;
     function useDirectorySuspenseQuery(...args: any[]): any;
-    function useDisableDlnaMutation(...args: any[]): any;
-    function useDlnaStatusLazyQuery(...args: any[]): any;
-    function useDlnaStatusQuery(...args: any[]): any;
-    function useDlnaStatusSuspenseQuery(...args: any[]): any;
-    function useEnableDlnaMutation(...args: any[]): any;
     function useExportObjectsMutation(...args: any[]): any;
     function useFindDuplicateScenesLazyQuery(...args: any[]): any;
     function useFindDuplicateScenesQuery(...args: any[]): any;
@@ -517,7 +493,6 @@ declare namespace PluginApi {
     function useReloadPluginsMutation(...args: any[]): any;
     function useReloadScrapersMutation(...args: any[]): any;
     function useRemoveGalleryImagesMutation(...args: any[]): any;
-    function useRemoveTempDlnaipMutation(...args: any[]): any;
     function useRunPluginTaskMutation(...args: any[]): any;
     function useSaveFilterMutation(...args: any[]): any;
     function useScanCompleteSubscribeSubscription(...args: any[]): any;
@@ -576,8 +551,6 @@ declare namespace PluginApi {
     function useSetDefaultFilterMutation(...args: any[]): any;
     function useSetPluginsEnabledMutation(...args: any[]): any;
     function useSetupMutation(...args: any[]): any;
-    function useStashBoxBatchPerformerTagMutation(...args: any[]): any;
-    function useStashBoxBatchStudioTagMutation(...args: any[]): any;
     function useStatsLazyQuery(...args: any[]): any;
     function useStatsQuery(...args: any[]): any;
     function useStatsSuspenseQuery(...args: any[]): any;
@@ -587,9 +560,6 @@ declare namespace PluginApi {
     function useStudioDestroyMutation(...args: any[]): any;
     function useStudioUpdateMutation(...args: any[]): any;
     function useStudiosDestroyMutation(...args: any[]): any;
-    function useSubmitStashBoxFingerprintsMutation(...args: any[]): any;
-    function useSubmitStashBoxPerformerDraftMutation(...args: any[]): any;
-    function useSubmitStashBoxSceneDraftMutation(...args: any[]): any;
     function useSystemStatusLazyQuery(...args: any[]): any;
     function useSystemStatusQuery(...args: any[]): any;
     function useSystemStatusSuspenseQuery(...args: any[]): any;
@@ -602,9 +572,6 @@ declare namespace PluginApi {
     function useUninstallScraperPackagesMutation(...args: any[]): any;
     function useUpdatePluginPackagesMutation(...args: any[]): any;
     function useUpdateScraperPackagesMutation(...args: any[]): any;
-    function useValidateStashBoxLazyQuery(...args: any[]): any;
-    function useValidateStashBoxQuery(...args: any[]): any;
-    function useValidateStashBoxSuspenseQuery(...args: any[]): any;
     function useVersionLazyQuery(...args: any[]): any;
     function useVersionQuery(...args: any[]): any;
     function useVersionSuspenseQuery(...args: any[]): any;
@@ -851,11 +818,7 @@ declare namespace PluginApi {
       function mutateSceneSetPrimaryFile(...args: any[]): any;
       function mutateSetPluginsEnabled(...args: any[]): any;
       function mutateSetup(...args: any[]): any;
-      function mutateStashBoxBatchPerformerTag(...args: any[]): any;
-      function mutateStashBoxBatchStudioTag(...args: any[]): any;
       function mutateStopJob(...args: any[]): any;
-      function mutateSubmitStashBoxPerformerDraft(...args: any[]): any;
-      function mutateSubmitStashBoxSceneDraft(...args: any[]): any;
       function mutateUninstallPluginPackages(...args: any[]): any;
       function mutateUninstallScraperPackages(...args: any[]): any;
       function mutateUpdatePluginPackages(...args: any[]): any;
@@ -895,27 +858,19 @@ declare namespace PluginApi {
       function queryScrapeSceneQuery(...args: any[]): any;
       function queryScrapeSceneQueryFragment(...args: any[]): any;
       function queryScrapeSceneURL(...args: any[]): any;
-      function stashBoxPerformerQuery(...args: any[]): any;
-      function stashBoxSceneBatchQuery(...args: any[]): any;
-      function stashBoxStudioQuery(...args: any[]): any;
-      function useAddTempDLNAIP(...args: any[]): any;
       function useBulkGalleryUpdate(...args: any[]): any;
       function useBulkImageUpdate(...args: any[]): any;
       function useBulkGroupUpdate(...args: any[]): any;
       function useBulkPerformerUpdate(...args: any[]): any;
       function useBulkSceneUpdate(...args: any[]): any;
       function useConfiguration(...args: any[]): any;
-      function useConfigureDLNA(...args: any[]): any;
       function useConfigureDefaults(...args: any[]): any;
       function useConfigureGeneral(...args: any[]): any;
       function useConfigureInterface(...args: any[]): any;
       function useConfigurePlugin(...args: any[]): any;
       function useConfigureScraping(...args: any[]): any;
       function useConfigureUI(...args: any[]): any;
-      function useDLNAStatus(...args: any[]): any;
       function useDirectory(...args: any[]): any;
-      function useDisableDLNA(...args: any[]): any;
-      function useEnableDLNA(...args: any[]): any;
       function useFindDefaultFilter(...args: any[]): any;
       function useFindGalleries(...args: any[]): any;
       function useFindGallery(...args: any[]): any;
@@ -968,7 +923,6 @@ declare namespace PluginApi {
       function usePerformersDestroy(...args: any[]): any;
       function usePluginTasks(...args: any[]): any;
       function usePlugins(...args: any[]): any;
-      function useRemoveTempDLNAIP(...args: any[]): any;
       function useSaveFilter(...args: any[]): any;
       function useSavedFilterDestroy(...args: any[]): any;
       function useSceneDecrementO(...args: any[]): any;
@@ -1034,7 +988,6 @@ declare namespace PluginApi {
       interface: any;
       defaults: any;
       scraping: any;
-      dlna: any;
       ui: any;
       plugins: any;
 
@@ -1047,7 +1000,6 @@ declare namespace PluginApi {
       saveInterface: (input: any) => void;
       saveDefaults: (input: any) => void;
       saveScraping: (input: any) => void;
-      saveDLNA: (input: any) => void;
       saveUI: (input: any) => void;
       savePluginSettings: (pluginID: string, input: {}) => void;
       setAdvancedMode: (value: boolean) => void;

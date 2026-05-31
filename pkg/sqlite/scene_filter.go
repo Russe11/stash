@@ -287,13 +287,24 @@ func (qb *sceneFilterHandler) addVideoFilesTable(f *filterBuilder, joinType join
 }
 
 func (qb *sceneFilterHandler) playCountCriterionHandler(count *models.IntCriterionInput) criterionHandlerFunc {
-	h := countCriterionHandlerBuilder{
-		primaryTable: sceneTable,
-		joinTable:    scenesViewDatesTable,
-		primaryFK:    sceneIDColumn,
-	}
+	return func(ctx context.Context, f *filterBuilder) {
+		if count == nil {
+			return
+		}
 
-	return h.handler(count)
+		lhs := fmt.Sprintf(
+			"((SELECT COUNT(*) FROM %s AS play_history WHERE play_history.%s = %s.id) + COALESCE((SELECT %s FROM %s AS aggregate_play_count WHERE aggregate_play_count.%s = %s.id), 0))",
+			scenesViewDatesTable,
+			sceneIDColumn,
+			sceneTable,
+			scenePlayCountColumn,
+			scenesPlayCountsTable,
+			sceneIDColumn,
+			sceneTable,
+		)
+		clause, args := getIntCriterionWhereClause(lhs, *count)
+		f.addWhere(clause, args...)
+	}
 }
 
 func (qb *sceneFilterHandler) oCountCriterionHandler(count *models.IntCriterionInput) criterionHandlerFunc {

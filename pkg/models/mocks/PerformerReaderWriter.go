@@ -245,13 +245,13 @@ func (_m *PerformerReaderWriter) FindByStashID(ctx context.Context, stashID mode
 	return r0, r1
 }
 
-// FindByStashIDStatus provides a mock function with given fields: ctx, hasStashID, stashboxEndpoint
-func (_m *PerformerReaderWriter) FindByStashIDStatus(ctx context.Context, hasStashID bool, stashboxEndpoint string) ([]*models.Performer, error) {
-	ret := _m.Called(ctx, hasStashID, stashboxEndpoint)
+// FindByStashIDStatus provides a mock function with given fields: ctx, hasStashID, remoteEndpoint
+func (_m *PerformerReaderWriter) FindByStashIDStatus(ctx context.Context, hasStashID bool, remoteEndpoint string) ([]*models.Performer, error) {
+	ret := _m.Called(ctx, hasStashID, remoteEndpoint)
 
 	var r0 []*models.Performer
 	if rf, ok := ret.Get(0).(func(context.Context, bool, string) []*models.Performer); ok {
-		r0 = rf(ctx, hasStashID, stashboxEndpoint)
+		r0 = rf(ctx, hasStashID, remoteEndpoint)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*models.Performer)
@@ -260,7 +260,7 @@ func (_m *PerformerReaderWriter) FindByStashIDStatus(ctx context.Context, hasSta
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, bool, string) error); ok {
-		r1 = rf(ctx, hasStashID, stashboxEndpoint)
+		r1 = rf(ctx, hasStashID, remoteEndpoint)
 	} else {
 		r1 = ret.Error(1)
 	}

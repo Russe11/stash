@@ -56,16 +56,16 @@ func (r SceneRelationships) MatchRelationships(ctx context.Context, s *models.Sc
 
 // ScrapedPerformer matches the provided performer with the
 // performers in the database and sets the ID field if one is found.
-func ScrapedPerformer(ctx context.Context, qb PerformerFinder, p *models.ScrapedPerformer, stashBoxEndpoint string) error {
+func ScrapedPerformer(ctx context.Context, qb PerformerFinder, p *models.ScrapedPerformer, remoteEndpoint string) error {
 	if p.StoredID != nil || p.Name == nil {
 		return nil
 	}
 
 	// Check if a performer with the StashID already exists
-	if stashBoxEndpoint != "" && p.RemoteSiteID != nil {
+	if remoteEndpoint != "" && p.RemoteSiteID != nil {
 		performers, err := qb.FindByStashID(ctx, models.StashID{
 			StashID:  *p.RemoteSiteID,
-			Endpoint: stashBoxEndpoint,
+			Endpoint: remoteEndpoint,
 		})
 		if err != nil {
 			return err
@@ -107,16 +107,16 @@ type StudioFinder interface {
 
 // ScrapedStudio matches the provided studio with the studios
 // in the database and sets the ID field if one is found.
-func ScrapedStudio(ctx context.Context, qb StudioFinder, s *models.ScrapedStudio, stashBoxEndpoint string) error {
+func ScrapedStudio(ctx context.Context, qb StudioFinder, s *models.ScrapedStudio, remoteEndpoint string) error {
 	if s.StoredID != nil {
 		return nil
 	}
 
 	// Check if a studio with the StashID already exists
-	if stashBoxEndpoint != "" && s.RemoteSiteID != nil {
+	if remoteEndpoint != "" && s.RemoteSiteID != nil {
 		studios, err := qb.FindByStashID(ctx, models.StashID{
 			StashID:  *s.RemoteSiteID,
-			Endpoint: stashBoxEndpoint,
+			Endpoint: remoteEndpoint,
 		})
 		if err != nil {
 			return err
@@ -153,8 +153,8 @@ func ScrapedStudio(ctx context.Context, qb StudioFinder, s *models.ScrapedStudio
 }
 
 // ScrapedStudioHierarchy executes ScrapedStudio for the provided studio and its parents recursively.
-func ScrapedStudioHierarchy(ctx context.Context, qb StudioFinder, s *models.ScrapedStudio, stashBoxEndpoint string) error {
-	if err := ScrapedStudio(ctx, qb, s, stashBoxEndpoint); err != nil {
+func ScrapedStudioHierarchy(ctx context.Context, qb StudioFinder, s *models.ScrapedStudio, remoteEndpoint string) error {
+	if err := ScrapedStudio(ctx, qb, s, remoteEndpoint); err != nil {
 		return err
 	}
 
@@ -162,7 +162,7 @@ func ScrapedStudioHierarchy(ctx context.Context, qb StudioFinder, s *models.Scra
 		return nil
 	}
 
-	return ScrapedStudioHierarchy(ctx, qb, s.Parent, stashBoxEndpoint)
+	return ScrapedStudioHierarchy(ctx, qb, s.Parent, remoteEndpoint)
 }
 
 // ScrapedGroup matches the provided movie with the movies
@@ -189,8 +189,8 @@ func ScrapedGroup(ctx context.Context, qb GroupNamesFinder, storedID *string, na
 }
 
 // ScrapedTagHierarchy executes ScrapedTag for the provided tag and its parent.
-func ScrapedTagHierarchy(ctx context.Context, qb models.TagNameFinder, s *models.ScrapedTag, stashBoxEndpoint string) error {
-	if err := ScrapedTag(ctx, qb, s, stashBoxEndpoint); err != nil {
+func ScrapedTagHierarchy(ctx context.Context, qb models.TagNameFinder, s *models.ScrapedTag, remoteEndpoint string) error {
+	if err := ScrapedTag(ctx, qb, s, remoteEndpoint); err != nil {
 		return err
 	}
 
@@ -204,17 +204,17 @@ func ScrapedTagHierarchy(ctx context.Context, qb models.TagNameFinder, s *models
 
 // ScrapedTag matches the provided tag with the tags
 // in the database and sets the ID field if one is found.
-func ScrapedTag(ctx context.Context, qb models.TagNameFinder, s *models.ScrapedTag, stashBoxEndpoint string) error {
+func ScrapedTag(ctx context.Context, qb models.TagNameFinder, s *models.ScrapedTag, remoteEndpoint string) error {
 	if s.StoredID != nil {
 		return nil
 	}
 
 	// Check if a tag with the StashID already exists
-	if stashBoxEndpoint != "" && s.RemoteSiteID != nil {
+	if remoteEndpoint != "" && s.RemoteSiteID != nil {
 		if finder, ok := qb.(models.TagFinder); ok {
 			tags, err := finder.FindByStashID(ctx, models.StashID{
 				StashID:  *s.RemoteSiteID,
-				Endpoint: stashBoxEndpoint,
+				Endpoint: remoteEndpoint,
 			})
 			if err != nil {
 				return err

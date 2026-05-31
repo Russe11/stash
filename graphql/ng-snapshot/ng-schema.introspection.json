@@ -5,20 +5,6 @@
   "types": [
     {
       "kind": "INPUT_OBJECT",
-      "name": "AddTempDLNAIPInput",
-      "inputFields": [
-        {
-          "name": "address",
-          "type": "String!"
-        },
-        {
-          "name": "duration",
-          "type": "Int"
-        }
-      ]
-    },
-    {
-      "kind": "INPUT_OBJECT",
       "name": "AnonymiseDatabaseInput",
       "inputFields": [
         {
@@ -913,66 +899,6 @@
     },
     {
       "kind": "INPUT_OBJECT",
-      "name": "ConfigDLNAInput",
-      "inputFields": [
-        {
-          "name": "serverName",
-          "type": "String"
-        },
-        {
-          "name": "enabled",
-          "type": "Boolean"
-        },
-        {
-          "name": "port",
-          "type": "Int"
-        },
-        {
-          "name": "whitelistedIPs",
-          "type": "[String!]"
-        },
-        {
-          "name": "interfaces",
-          "type": "[String!]"
-        },
-        {
-          "name": "videoSortOrder",
-          "type": "String"
-        }
-      ]
-    },
-    {
-      "kind": "OBJECT",
-      "name": "ConfigDLNAResult",
-      "fields": [
-        {
-          "name": "serverName",
-          "type": "String!"
-        },
-        {
-          "name": "enabled",
-          "type": "Boolean!"
-        },
-        {
-          "name": "port",
-          "type": "Int!"
-        },
-        {
-          "name": "whitelistedIPs",
-          "type": "[String!]!"
-        },
-        {
-          "name": "interfaces",
-          "type": "[String!]!"
-        },
-        {
-          "name": "videoSortOrder",
-          "type": "String!"
-        }
-      ]
-    },
-    {
-      "kind": "INPUT_OBJECT",
       "name": "ConfigDefaultSettingsInput",
       "inputFields": [
         {
@@ -1284,10 +1210,6 @@
           "type": "String"
         },
         {
-          "name": "stashBoxes",
-          "type": "[StashBoxInput!]"
-        },
-        {
           "name": "pythonPath",
           "type": "String"
         },
@@ -1548,10 +1470,6 @@
         {
           "name": "customPerformerImageLocation",
           "type": "String"
-        },
-        {
-          "name": "stashBoxes",
-          "type": "[StashBox!]!"
         },
         {
           "name": "pythonPath",
@@ -1869,10 +1787,6 @@
           "type": "ConfigInterfaceResult!"
         },
         {
-          "name": "dlna",
-          "type": "ConfigDLNAResult!"
-        },
-        {
           "name": "scraping",
           "type": "ConfigScrapingResult!"
         },
@@ -1992,42 +1906,6 @@
         {
           "name": "remove",
           "type": "[String!]"
-        }
-      ]
-    },
-    {
-      "kind": "OBJECT",
-      "name": "DLNAIP",
-      "fields": [
-        {
-          "name": "ipAddress",
-          "type": "String!"
-        },
-        {
-          "name": "until",
-          "type": "Time"
-        }
-      ]
-    },
-    {
-      "kind": "OBJECT",
-      "name": "DLNAStatus",
-      "fields": [
-        {
-          "name": "running",
-          "type": "Boolean!"
-        },
-        {
-          "name": "until",
-          "type": "Time"
-        },
-        {
-          "name": "recentIPAddresses",
-          "type": "[String!]!"
-        },
-        {
-          "name": "allowedIPAddresses",
-          "type": "[DLNAIP!]!"
         }
       ]
     },
@@ -2300,16 +2178,6 @@
     },
     {
       "kind": "INPUT_OBJECT",
-      "name": "DisableDLNAInput",
-      "inputFields": [
-        {
-          "name": "duration",
-          "type": "Int"
-        }
-      ]
-    },
-    {
-      "kind": "INPUT_OBJECT",
       "name": "DuplicationCriterionInput",
       "inputFields": [
         {
@@ -2335,16 +2203,6 @@
         {
           "name": "title",
           "type": "Boolean"
-        }
-      ]
-    },
-    {
-      "kind": "INPUT_OBJECT",
-      "name": "EnableDLNAInput",
-      "inputFields": [
-        {
-          "name": "duration",
-          "type": "Int"
         }
       ]
     },
@@ -6604,16 +6462,6 @@
           ]
         },
         {
-          "name": "configureDLNA",
-          "type": "ConfigDLNAResult!",
-          "args": [
-            {
-              "name": "input",
-              "type": "ConfigDLNAInput!"
-            }
-          ]
-        },
-        {
           "name": "configureScraping",
           "type": "ConfigScrapingResult!",
           "args": [
@@ -6630,6 +6478,16 @@
             {
               "name": "input",
               "type": "ConfigDefaultSettingsInput!"
+            }
+          ]
+        },
+        {
+          "name": "updateViewerPreferences",
+          "type": "ViewerPreferences!",
+          "args": [
+            {
+              "name": "input",
+              "type": "ViewerPreferencesInput!"
             }
           ]
         },
@@ -6926,36 +6784,6 @@
           "type": "Boolean!"
         },
         {
-          "name": "submitStashBoxFingerprints",
-          "type": "Boolean!",
-          "args": [
-            {
-              "name": "input",
-              "type": "StashBoxFingerprintSubmissionInput!"
-            }
-          ]
-        },
-        {
-          "name": "submitStashBoxSceneDraft",
-          "type": "ID",
-          "args": [
-            {
-              "name": "input",
-              "type": "StashBoxDraftSubmissionInput!"
-            }
-          ]
-        },
-        {
-          "name": "submitStashBoxPerformerDraft",
-          "type": "ID",
-          "args": [
-            {
-              "name": "input",
-              "type": "StashBoxDraftSubmissionInput!"
-            }
-          ]
-        },
-        {
           "name": "backupDatabase",
           "type": "String",
           "args": [
@@ -6990,76 +6818,6 @@
             {
               "name": "args",
               "type": "[Any]"
-            }
-          ]
-        },
-        {
-          "name": "stashBoxBatchPerformerTag",
-          "type": "String!",
-          "args": [
-            {
-              "name": "input",
-              "type": "StashBoxBatchTagInput!"
-            }
-          ]
-        },
-        {
-          "name": "stashBoxBatchStudioTag",
-          "type": "String!",
-          "args": [
-            {
-              "name": "input",
-              "type": "StashBoxBatchTagInput!"
-            }
-          ]
-        },
-        {
-          "name": "stashBoxBatchTagTag",
-          "type": "String!",
-          "args": [
-            {
-              "name": "input",
-              "type": "StashBoxBatchTagInput!"
-            }
-          ]
-        },
-        {
-          "name": "enableDLNA",
-          "type": "Boolean!",
-          "args": [
-            {
-              "name": "input",
-              "type": "EnableDLNAInput!"
-            }
-          ]
-        },
-        {
-          "name": "disableDLNA",
-          "type": "Boolean!",
-          "args": [
-            {
-              "name": "input",
-              "type": "DisableDLNAInput!"
-            }
-          ]
-        },
-        {
-          "name": "addTempDLNAIP",
-          "type": "Boolean!",
-          "args": [
-            {
-              "name": "input",
-              "type": "AddTempDLNAIPInput!"
-            }
-          ]
-        },
-        {
-          "name": "removeTempDLNAIP",
-          "type": "Boolean!",
-          "args": [
-            {
-              "name": "input",
-              "type": "RemoveTempDLNAIPInput!"
             }
           ]
         },
@@ -9007,16 +8765,6 @@
           ]
         },
         {
-          "name": "validateStashBoxCredentials",
-          "type": "StashBoxValidationResult!",
-          "args": [
-            {
-              "name": "input",
-              "type": "StashBoxInput!"
-            }
-          ]
-        },
-        {
           "name": "systemStatus",
           "type": "SystemStatus!"
         },
@@ -9033,10 +8781,6 @@
               "type": "FindJobInput!"
             }
           ]
-        },
-        {
-          "name": "dlnaStatus",
-          "type": "DLNAStatus!"
         },
         {
           "name": "allScenes",
@@ -9083,6 +8827,10 @@
           "type": "ServerCapabilities!"
         },
         {
+          "name": "viewerPreferences",
+          "type": "ViewerPreferences!"
+        },
+        {
           "name": "devices",
           "type": "[Device!]!"
         },
@@ -9099,16 +8847,6 @@
               "type": "String!"
             }
           ]
-        }
-      ]
-    },
-    {
-      "kind": "INPUT_OBJECT",
-      "name": "RemoveTempDLNAIPInput",
-      "inputFields": [
-        {
-          "name": "address",
-          "type": "String!"
         }
       ]
     },
@@ -11353,10 +11091,6 @@
         {
           "name": "duration",
           "type": "Int"
-        },
-        {
-          "name": "fingerprints",
-          "type": "[StashBoxFingerprint!]"
         }
       ]
     },
@@ -11517,14 +11251,6 @@
       "name": "ScraperSource",
       "fields": [
         {
-          "name": "stash_box_index",
-          "type": "Int"
-        },
-        {
-          "name": "stash_box_endpoint",
-          "type": "String"
-        },
-        {
           "name": "scraper_id",
           "type": "ID"
         }
@@ -11534,14 +11260,6 @@
       "kind": "INPUT_OBJECT",
       "name": "ScraperSourceInput",
       "inputFields": [
-        {
-          "name": "stash_box_index",
-          "type": "Int"
-        },
-        {
-          "name": "stash_box_endpoint",
-          "type": "String"
-        },
         {
           "name": "scraper_id",
           "type": "ID"
@@ -11684,223 +11402,6 @@
     },
     {
       "kind": "OBJECT",
-      "name": "StashBox",
-      "fields": [
-        {
-          "name": "endpoint",
-          "type": "String!"
-        },
-        {
-          "name": "api_key",
-          "type": "String!"
-        },
-        {
-          "name": "name",
-          "type": "String!"
-        },
-        {
-          "name": "max_requests_per_minute",
-          "type": "Int!"
-        }
-      ]
-    },
-    {
-      "kind": "INPUT_OBJECT",
-      "name": "StashBoxBatchTagInput",
-      "description": "Accepts either ids, or a combination of names and stash_ids.\nIf none are set, then all existing items will be tagged.",
-      "inputFields": [
-        {
-          "name": "endpoint",
-          "type": "Int"
-        },
-        {
-          "name": "stash_box_endpoint",
-          "type": "String"
-        },
-        {
-          "name": "exclude_fields",
-          "type": "[String!]"
-        },
-        {
-          "name": "refresh",
-          "type": "Boolean!"
-        },
-        {
-          "name": "createParent",
-          "type": "Boolean!"
-        },
-        {
-          "name": "ids",
-          "type": "[ID!]"
-        },
-        {
-          "name": "names",
-          "type": "[String!]"
-        },
-        {
-          "name": "stash_ids",
-          "type": "[String!]"
-        },
-        {
-          "name": "performer_ids",
-          "type": "[ID!]"
-        },
-        {
-          "name": "performer_names",
-          "type": "[String!]"
-        }
-      ]
-    },
-    {
-      "kind": "INPUT_OBJECT",
-      "name": "StashBoxDraftSubmissionInput",
-      "inputFields": [
-        {
-          "name": "id",
-          "type": "String!"
-        },
-        {
-          "name": "stash_box_index",
-          "type": "Int"
-        },
-        {
-          "name": "stash_box_endpoint",
-          "type": "String"
-        }
-      ]
-    },
-    {
-      "kind": "OBJECT",
-      "name": "StashBoxFingerprint",
-      "fields": [
-        {
-          "name": "algorithm",
-          "type": "String!"
-        },
-        {
-          "name": "hash",
-          "type": "String!"
-        },
-        {
-          "name": "duration",
-          "type": "Int!"
-        }
-      ]
-    },
-    {
-      "kind": "INPUT_OBJECT",
-      "name": "StashBoxFingerprintSubmissionInput",
-      "inputFields": [
-        {
-          "name": "scene_ids",
-          "type": "[String!]!"
-        },
-        {
-          "name": "stash_box_index",
-          "type": "Int"
-        },
-        {
-          "name": "stash_box_endpoint",
-          "type": "String"
-        }
-      ]
-    },
-    {
-      "kind": "INPUT_OBJECT",
-      "name": "StashBoxInput",
-      "inputFields": [
-        {
-          "name": "endpoint",
-          "type": "String!"
-        },
-        {
-          "name": "api_key",
-          "type": "String!"
-        },
-        {
-          "name": "name",
-          "type": "String!"
-        },
-        {
-          "name": "max_requests_per_minute",
-          "type": "Int"
-        }
-      ]
-    },
-    {
-      "kind": "INPUT_OBJECT",
-      "name": "StashBoxPerformerQueryInput",
-      "inputFields": [
-        {
-          "name": "stash_box_index",
-          "type": "Int"
-        },
-        {
-          "name": "stash_box_endpoint",
-          "type": "String"
-        },
-        {
-          "name": "performer_ids",
-          "type": "[ID!]"
-        },
-        {
-          "name": "q",
-          "type": "String"
-        }
-      ]
-    },
-    {
-      "kind": "OBJECT",
-      "name": "StashBoxPerformerQueryResult",
-      "fields": [
-        {
-          "name": "query",
-          "type": "String!"
-        },
-        {
-          "name": "results",
-          "type": "[ScrapedPerformer!]!"
-        }
-      ]
-    },
-    {
-      "kind": "INPUT_OBJECT",
-      "name": "StashBoxSceneQueryInput",
-      "inputFields": [
-        {
-          "name": "stash_box_index",
-          "type": "Int"
-        },
-        {
-          "name": "stash_box_endpoint",
-          "type": "String"
-        },
-        {
-          "name": "scene_ids",
-          "type": "[ID!]"
-        },
-        {
-          "name": "q",
-          "type": "String"
-        }
-      ]
-    },
-    {
-      "kind": "OBJECT",
-      "name": "StashBoxValidationResult",
-      "fields": [
-        {
-          "name": "valid",
-          "type": "Boolean!"
-        },
-        {
-          "name": "status",
-          "type": "String!"
-        }
-      ]
-    },
-    {
-      "kind": "OBJECT",
       "name": "StashConfig",
       "fields": [
         {
@@ -12005,6 +11506,46 @@
         {
           "name": "modifier",
           "type": "CriterionModifier!"
+        }
+      ]
+    },
+    {
+      "kind": "OBJECT",
+      "name": "StashTVHomePreferences",
+      "fields": [
+        {
+          "name": "excludedTagIDs",
+          "type": "[ID!]!"
+        }
+      ]
+    },
+    {
+      "kind": "INPUT_OBJECT",
+      "name": "StashTVHomePreferencesInput",
+      "inputFields": [
+        {
+          "name": "excludedTagIDs",
+          "type": "[ID!]"
+        }
+      ]
+    },
+    {
+      "kind": "OBJECT",
+      "name": "StashTVViewerPreferences",
+      "fields": [
+        {
+          "name": "home",
+          "type": "StashTVHomePreferences!"
+        }
+      ]
+    },
+    {
+      "kind": "INPUT_OBJECT",
+      "name": "StashTVViewerPreferencesInput",
+      "inputFields": [
+        {
+          "name": "home",
+          "type": "StashTVHomePreferencesInput"
         }
       ]
     },
@@ -13251,6 +12792,26 @@
         {
           "name": "interactive_speed",
           "type": "IntCriterionInput"
+        }
+      ]
+    },
+    {
+      "kind": "OBJECT",
+      "name": "ViewerPreferences",
+      "fields": [
+        {
+          "name": "stashTV",
+          "type": "StashTVViewerPreferences!"
+        }
+      ]
+    },
+    {
+      "kind": "INPUT_OBJECT",
+      "name": "ViewerPreferencesInput",
+      "inputFields": [
+        {
+          "name": "stashTV",
+          "type": "StashTVViewerPreferencesInput"
         }
       ]
     },

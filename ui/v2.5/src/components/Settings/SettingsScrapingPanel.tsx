@@ -18,7 +18,6 @@ import { ScrapeType } from "src/core/generated-graphql";
 import { SettingSection } from "./SettingSection";
 import { BooleanSetting, StringListSetting, StringSetting } from "./Inputs";
 import { useSettings } from "./context";
-import { StashBoxSetting } from "./StashBoxConfiguration";
 import { faSyncAlt } from "@fortawesome/free-solid-svg-icons";
 import {
   AvailableScraperPackages,
@@ -343,19 +342,13 @@ const ScrapersSection: React.FC = () => {
 };
 
 export const SettingsScrapingPanel: React.FC = () => {
-  const { general, scraping, loading, error, saveGeneral, saveScraping } =
-    useSettings();
+  const { scraping, loading, error, saveScraping } = useSettings();
 
   if (error) return <h1>{error.message}</h1>;
   if (loading) return <LoadingIndicator />;
 
   return (
     <>
-      <StashBoxSetting
-        value={general.stashBoxes ?? []}
-        onChange={(v) => saveGeneral({ stashBoxes: v })}
-      />
-
       <SettingSection headingID="config.general.scraping">
         <StringSetting
           id="scraperUserAgent"

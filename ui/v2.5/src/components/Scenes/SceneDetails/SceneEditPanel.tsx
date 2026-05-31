@@ -24,12 +24,11 @@ import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { ImageInput } from "src/components/Shared/ImageInput";
 import { useToast } from "src/hooks/Toast";
 import ImageUtils from "src/utils/image";
-import { addUpdateStashID, getStashIDs } from "src/utils/stashIds";
+import { getStashIDs } from "src/utils/stashIds";
 import { useFormik } from "formik";
 import { Prompt } from "react-router-dom";
-import { useConfigurationContext } from "src/hooks/Config";
 import { IGroupEntry, SceneGroupTable } from "./SceneGroupTable";
-import { faSearch, faPlus } from "@fortawesome/free-solid-svg-icons";
+import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import { objectTitle } from "src/core/files";
 import { galleryTitle } from "src/core/galleries";
 import { lazyComponent } from "src/utils/lazyComponent";
@@ -49,7 +48,6 @@ import { Gallery, GallerySelect } from "src/components/Galleries/GallerySelect";
 import { Group } from "src/components/Groups/GroupSelect";
 import { useTagsEdit } from "src/hooks/tagsEdit";
 import { ScraperMenu } from "src/components/Shared/ScraperMenu";
-import StashBoxIDSearchModal from "src/components/Shared/StashBoxIDSearchModal";
 import {
   CustomFieldsInput,
   formatCustomFieldInput,
@@ -91,10 +89,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
   const [scraper, setScraper] = useState<GQL.ScraperSourceInput>();
   const [isScraperQueryModalOpen, setIsScraperQueryModalOpen] =
     useState<boolean>(false);
-  const [isStashIDSearchOpen, setIsStashIDSearchOpen] =
-    useState<boolean>(false);
   const [scrapedScene, setScrapedScene] = useState<GQL.ScrapedScene | null>();
-  const [endpoint, setEndpoint] = useState<string>();
 
   useEffect(() => {
     setGalleries(
@@ -118,8 +113,6 @@ export const SceneEditPanel: React.FC<IProps> = ({
   useEffect(() => {
     setStudio(scene.studio ?? null);
   }, [scene.studio]);
-
-  const { configuration: stashConfig } = useConfigurationContext();
 
   // Network state
   const [isLoading, setIsLoading] = useState(false);
@@ -271,7 +264,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
 
     setFragmentScrapers(newFragmentScrapers);
     setQueryableScrapers(newQueryableScrapers);
-  }, [Scrapers, stashConfig]);
+  }, [Scrapers]);
 
   function onSetGroups(items: Group[]) {
     setGroups(items);
@@ -336,7 +329,6 @@ export const SceneEditPanel: React.FC<IProps> = ({
       }
       // assume one returned scene
       setScrapedScene(result.data.scrapeSingleScene[0]);
-      setEndpoint(s.stash_box_endpoint ?? undefined);
     } catch (e) {
       Toast.error(e);
     } finally {
@@ -376,7 +368,6 @@ export const SceneEditPanel: React.FC<IProps> = ({
 
   function onScrapeQueryClicked(s: GQL.ScraperSourceInput) {
     setScraper(s);
-    setEndpoint(s.stash_box_endpoint ?? undefined);
     setIsScraperQueryModalOpen(true);
   }
 
@@ -420,7 +411,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
         scenePerformers={performers}
         sceneGroups={groups}
         scraped={scrapedScene}
-        endpoint={endpoint}
+        endpoint={undefined}
         onClose={(s) => onScrapeDialogClosed(s)}
       />
     );
@@ -429,13 +420,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
   function onSceneSelected(s: GQL.ScrapedSceneDataFragment) {
     if (!scraper) return;
 
-    if (scraper?.stash_box_endpoint !== undefined) {
-      // must be stash-box - assume full scene
-      setScrapedScene(s);
-    } else {
-      // must be scraper
-      scrapeFromQuery(scraper, s);
-    }
+    scrapeFromQuery(scraper, s);
   }
 
   const renderScrapeQueryModal = () => {
@@ -538,35 +523,6 @@ export const SceneEditPanel: React.FC<IProps> = ({
       formik.setFieldValue("cover_image", updatedScene.image);
     }
 
-    if (updatedScene.remote_site_id && endpoint) {
-      let found = false;
-      formik.setFieldValue(
-        "stash_ids",
-        formik.values.stash_ids.map((s) => {
-          if (s.endpoint === endpoint) {
-            found = true;
-            return {
-              endpoint,
-              stash_id: updatedScene.remote_site_id,
-              updated_at: new Date().toISOString(),
-            };
-          }
-
-          return s;
-        })
-      );
-
-      if (!found) {
-        formik.setFieldValue(
-          "stash_ids",
-          formik.values.stash_ids.concat({
-            endpoint,
-            stash_id: updatedScene.remote_site_id,
-            updated_at: new Date().toISOString(),
-          })
-        );
-      }
-    }
   }
 
   async function onScrapeSceneURL(url: string) {
@@ -585,14 +541,6 @@ export const SceneEditPanel: React.FC<IProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }
-
-  function onStashIDSelected(item?: GQL.StashIdInput) {
-    if (!item) return;
-    formik.setFieldValue(
-      "stash_ids",
-      addUpdateStashID(formik.values.stash_ids, item)
-    );
   }
 
   const image = useMemo(() => {
@@ -757,20 +705,6 @@ export const SceneEditPanel: React.FC<IProps> = ({
 
       {renderScrapeQueryModal()}
       {maybeRenderScrapeDialog()}
-      {isStashIDSearchOpen && (
-        <StashBoxIDSearchModal
-          entityType="scene"
-          stashBoxes={stashConfig?.general.stashBoxes ?? []}
-          excludedStashBoxEndpoints={formik.values.stash_ids.map(
-            (s) => s.endpoint
-          )}
-          onSelectItem={(item) => {
-            onStashIDSelected(item);
-            setIsStashIDSearchOpen(false);
-          }}
-          initialQuery={scene.title ?? ""}
-        />
-      )}
       <Form noValidate onSubmit={formik.handleSubmit}>
         <Row className="form-container edit-buttons-container px-3 pt-3">
           <div className="edit-buttons mb-3 pl-0">
@@ -818,7 +752,6 @@ export const SceneEditPanel: React.FC<IProps> = ({
               <ButtonGroup className="scraper-group">
                 <ScraperMenu
                   toggle={intl.formatMessage({ id: "actions.scrape_with" })}
-                  stashBoxes={stashConfig?.general.stashBoxes ?? []}
                   scrapers={fragmentScrapers}
                   onScraperClicked={onScrapeClicked}
                   onReloadScrapers={onReloadScrapers}
@@ -826,7 +759,6 @@ export const SceneEditPanel: React.FC<IProps> = ({
                 <ScraperMenu
                   variant="secondary"
                   toggle={<Icon icon={faSearch} />}
-                  stashBoxes={stashConfig?.general.stashBoxes ?? []}
                   scrapers={queryableScrapers}
                   onScraperClicked={onScrapeQueryClicked}
                   onReloadScrapers={onReloadScrapers}
@@ -862,15 +794,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
               "scenes",
               "stash_ids",
               fullWidthProps,
-              <Button
-                variant="success"
-                className="mr-2 py-0"
-                onClick={() => setIsStashIDSearchOpen(true)}
-                disabled={!stashConfig?.general.stashBoxes?.length}
-                title={intl.formatMessage({ id: "actions.add_stash_id" })}
-              >
-                <Icon icon={faPlus} />
-              </Button>
+              undefined
             )}
           </Col>
           <Col lg={5} xl={12}>

@@ -1,7 +1,7 @@
 import * as GQL from "src/core/generated-graphql";
 import { ParseMode } from "./constants";
 import { queryFindStudio, queryFindTag } from "src/core/StashService";
-import { mergeStashIDs } from "src/utils/stashbox";
+import { mergeStashIDs } from "src/utils/stash-id";
 
 const months = [
   "jan",

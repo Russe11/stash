@@ -8,7 +8,6 @@ import {
   Performer,
   PerformerSelect,
 } from "src/components/Performers/PerformerSelect";
-import { getStashboxBase } from "src/utils/stashbox";
 import { ExternalLink } from "src/components/Shared/ExternalLink";
 import { Link } from "react-router-dom";
 import { LinkButton } from "../LinkButton";
@@ -76,9 +75,6 @@ const PerformerResult: React.FC<IPerformerResultProps> = ({
 
   const [selectedPerformer, setSelectedPerformer] = useState<Performer>();
 
-  const stashboxPerformerPrefix = endpoint
-    ? `${getStashboxBase(endpoint)}performers/`
-    : undefined;
   const performerURLPrefix = "/performers/";
 
   function selectPerformer(selected: Performer | undefined) {
@@ -117,7 +113,7 @@ const PerformerResult: React.FC<IPerformerResultProps> = ({
           <b className="ml-2">
             <PerformerLink
               performer={performer}
-              url={`${stashboxPerformerPrefix}${performer.remote_site_id}`}
+              url={undefined}
             />
           </b>
         </div>
@@ -149,9 +145,7 @@ const PerformerResult: React.FC<IPerformerResultProps> = ({
   const selectedSource = !selectedID ? "skip" : "existing";
 
   const safeBuildPerformerScraperLink = (id: string | null | undefined) => {
-    return stashboxPerformerPrefix && id
-      ? `${stashboxPerformerPrefix}${id}`
-      : undefined;
+    return undefined;
   };
 
   return (

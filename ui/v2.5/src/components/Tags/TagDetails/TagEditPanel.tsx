@@ -3,8 +3,7 @@ import { FormattedMessage, useIntl } from "react-intl";
 import * as GQL from "src/core/generated-graphql";
 import * as yup from "yup";
 import { DetailsEditNavbar } from "src/components/Shared/DetailsEditNavbar";
-import { Button, Form } from "react-bootstrap";
-import { faPlus } from "@fortawesome/free-solid-svg-icons";
+import { Form } from "react-bootstrap";
 import ImageUtils from "src/utils/image";
 import { useFormik } from "formik";
 import { Prompt } from "react-router-dom";
@@ -12,14 +11,11 @@ import Mousetrap from "mousetrap";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import isEqual from "lodash-es/isEqual";
 import { useToast } from "src/hooks/Toast";
-import { useConfigurationContext } from "src/hooks/Config";
 import { handleUnsavedChanges } from "src/utils/navigation";
 import { formikUtils } from "src/utils/form";
 import { yupFormikValidate, yupRequiredStringArray } from "src/utils/yup";
-import { addUpdateStashID, getStashIDs } from "src/utils/stashIds";
+import { getStashIDs } from "src/utils/stashIds";
 import { Tag, TagSelect } from "../TagSelect";
-import { Icon } from "src/components/Shared/Icon";
-import StashBoxIDSearchModal from "src/components/Shared/StashBoxIDSearchModal";
 import {
   CustomFieldsInput,
   formatCustomFieldInput,
@@ -45,12 +41,8 @@ export const TagEditPanel: React.FC<ITagEditPanel> = ({
 }) => {
   const intl = useIntl();
   const Toast = useToast();
-  const { configuration: stashConfig } = useConfigurationContext();
 
   const isNew = tag.id === undefined;
-
-  // Editing state
-  const [isStashIDSearchOpen, setIsStashIDSearchOpen] = useState(false);
 
   // Network state
   const [isLoading, setIsLoading] = useState(false);
@@ -176,15 +168,6 @@ export const TagEditPanel: React.FC<ITagEditPanel> = ({
     ImageUtils.onImageChange(event, onImageLoad);
   }
 
-  function onStashIDSelected(item?: GQL.StashIdInput) {
-    if (!item) return;
-    const allowMultiple = true;
-    formik.setFieldValue(
-      "stash_ids",
-      addUpdateStashID(formik.values.stash_ids, item, allowMultiple)
-    );
-  }
-
   const {
     renderField,
     renderInputField,
@@ -229,19 +212,6 @@ export const TagEditPanel: React.FC<ITagEditPanel> = ({
   // TODO: CSS class
   return (
     <>
-      {/* allow many stash-ids from the same stash box */}
-      {isStashIDSearchOpen && (
-        <StashBoxIDSearchModal
-          entityType="tag"
-          stashBoxes={stashConfig?.general.stashBoxes ?? []}
-          onSelectItem={(item) => {
-            onStashIDSelected(item);
-            setIsStashIDSearchOpen(false);
-          }}
-          initialQuery={tag?.name ?? ""}
-        />
-      )}
-
       <div>
         {isNew && (
           <h2>
@@ -276,15 +246,7 @@ export const TagEditPanel: React.FC<ITagEditPanel> = ({
             "tags",
             "stash_ids",
             undefined,
-            <Button
-              variant="success"
-              className="mr-2 py-0"
-              onClick={() => setIsStashIDSearchOpen(true)}
-              disabled={!stashConfig?.general.stashBoxes?.length}
-              title={intl.formatMessage({ id: "actions.add_stash_id" })}
-            >
-              <Icon icon={faPlus} />
-            </Button>
+            undefined
           )}
 
           <CustomFieldsInput

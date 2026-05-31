@@ -1108,18 +1108,16 @@ func (r *mutationResolver) SceneIncrementPlayCount(ctx context.Context, id strin
 		return 0, fmt.Errorf("converting id: %w", err)
 	}
 
-	var updatedTimes []time.Time
-
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.Scene
 
-		updatedTimes, err = qb.AddViews(ctx, sceneID, nil)
+		ret, err = qb.IncrementPlayCount(ctx, sceneID)
 		return err
 	}); err != nil {
 		return 0, err
 	}
 
-	return len(updatedTimes), nil
+	return ret, nil
 }
 
 func (r *mutationResolver) SceneAddPlay(ctx context.Context, id string, t []*time.Time) (*HistoryMutationResult, error) {

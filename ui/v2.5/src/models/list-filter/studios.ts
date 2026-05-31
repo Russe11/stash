@@ -48,7 +48,6 @@ const sortByOptions = [
 const displayModeOptions = [
   DisplayMode.Grid,
   DisplayMode.List,
-  DisplayMode.Tagger,
 ];
 const criterionOptions = [
   FavoriteStudioCriterionOption,

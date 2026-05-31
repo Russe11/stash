@@ -2,13 +2,6 @@
 # Regenerate with `make export-ng-schema` after any schema change.
 # This is the single NG GraphQL contract artifact every client consumes.
 
-input AddTempDLNAIPInput {
-	address: String!
-	"""
-	Duration to enable, in minutes. 0 or null for indefinite.
-	"""
-	duration: Int
-}
 input AnonymiseDatabaseInput {
 	download: Boolean
 }
@@ -314,52 +307,6 @@ input CleanMetadataInput {
 	"""
 	dryRun: Boolean!
 }
-input ConfigDLNAInput {
-	serverName: String
-	"""
-	True if DLNA service should be enabled by default
-	"""
-	enabled: Boolean
-	"""
-	Defaults to 1338
-	"""
-	port: Int
-	"""
-	List of IPs whitelisted for DLNA service
-	"""
-	whitelistedIPs: [String!]
-	"""
-	List of interfaces to run DLNA on. Empty for all
-	"""
-	interfaces: [String!]
-	"""
-	Order to sort videos
-	"""
-	videoSortOrder: String
-}
-type ConfigDLNAResult {
-	serverName: String!
-	"""
-	True if DLNA service should be enabled by default
-	"""
-	enabled: Boolean!
-	"""
-	Defaults to 1338
-	"""
-	port: Int!
-	"""
-	List of IPs whitelisted for DLNA service
-	"""
-	whitelistedIPs: [String!]!
-	"""
-	List of interfaces to run DLNA on. Empty for all
-	"""
-	interfaces: [String!]!
-	"""
-	Order to sort videos
-	"""
-	videoSortOrder: String!
-}
 input ConfigDefaultSettingsInput {
 	scan: ScanMetadataInput
 	identify: IdentifyMetadataInput
@@ -603,10 +550,6 @@ input ConfigGeneralInput {
 	Custom Performer Image Location
 	"""
 	customPerformerImageLocation: String
-	"""
-	Stash-box instances used for tagging
-	"""
-	stashBoxes: [StashBoxInput!]
 	"""
 	Python path - resolved using path if unset
 	"""
@@ -870,10 +813,6 @@ type ConfigGeneralResult {
 	"""
 	customPerformerImageLocation: String
 	"""
-	Stash-box instances used for tagging
-	"""
-	stashBoxes: [StashBox!]!
-	"""
 	Python path - resolved using path if unset
 	"""
 	pythonPath: String!
@@ -1098,7 +1037,6 @@ All configuration settings
 type ConfigResult {
 	general: ConfigGeneralResult!
 	interface: ConfigInterfaceResult!
-	dlna: ConfigDLNAResult!
 	scraping: ConfigScrapingResult!
 	defaults: ConfigDefaultSettingsResult!
 	ui: Map!
@@ -1206,22 +1144,6 @@ input CustomFieldsInput {
 	Remove any keys in this list
 	"""
 	remove: [String!]
-}
-type DLNAIP {
-	ipAddress: String!
-	"""
-	Time until IP will be no longer allowed/disallowed
-	"""
-	until: Time
-}
-type DLNAStatus {
-	running: Boolean!
-	"""
-	If not currently running, time until it will be started. If running, time until it will be stopped
-	"""
-	until: Time
-	recentIPAddresses: [String!]!
-	allowedIPAddresses: [DLNAIP!]!
 }
 input DateCriterionInput {
 	value: String!
@@ -1396,12 +1318,6 @@ type Directory {
 	parent: String
 	directories: [String!]!
 }
-input DisableDLNAInput {
-	"""
-	Duration to enable, in minutes. 0 or null for indefinite.
-	"""
-	duration: Int
-}
 input DuplicationCriterionInput {
 	duplicated: Boolean @deprecated(reason: "Use phash field instead")
 	"""
@@ -1424,12 +1340,6 @@ input DuplicationCriterionInput {
 	Filter by title duplication
 	"""
 	title: Boolean
-}
-input EnableDLNAInput {
-	"""
-	Duration to enable, in minutes. 0 or null for indefinite.
-	"""
-	duration: Int
 }
 """
 NG-only. A metadata-only notification that a tracked top-level entity was created, updated, or
@@ -2998,9 +2908,9 @@ type Mutation {
 	"""
 	sceneResetActivity(id: ID!, reset_resume: Boolean, reset_duration: Boolean): Boolean!
 	"""
-	Increments the play count for the scene. Returns the new play count value.
+	Increments the aggregate play count for the scene without storing play history. Returns the new play count value.
 	"""
-	sceneIncrementPlayCount(id: ID!): Int! @deprecated(reason: "Use sceneAddPlay instead")
+	sceneIncrementPlayCount(id: ID!): Int! @deprecated(reason: "Use sceneAddPlay for timestamped play history")
 	"""
 	Increments the play count for the scene. Uses the current time if none provided.
 	"""
@@ -3125,9 +3035,14 @@ type Mutation {
 	"""
 	configureGeneral(input: ConfigGeneralInput!): ConfigGeneralResult!
 	configureInterface(input: ConfigInterfaceInput!): ConfigInterfaceResult!
-	configureDLNA(input: ConfigDLNAInput!): ConfigDLNAResult!
 	configureScraping(input: ConfigScrapingInput!): ConfigScrapingResult!
 	configureDefaults(input: ConfigDefaultSettingsInput!): ConfigDefaultSettingsResult!
+	"""
+	NG-only (viewerPreferences). Updates shared presentation defaults for native viewers.
+	Currently scoped to Stash TV Home Hidden Tags. Gate on features containing
+	"viewerPreferences".
+	"""
+	updateViewerPreferences(input: ViewerPreferencesInput!): ViewerPreferences!
 	"""
 	overwrites the entire plugin configuration for the given plugin
 	"""
@@ -3265,18 +3180,6 @@ type Mutation {
 	stopJob(job_id: ID!): Boolean!
 	stopAllJobs: Boolean!
 	"""
-	Submit fingerprints to stash-box instance
-	"""
-	submitStashBoxFingerprints(input: StashBoxFingerprintSubmissionInput!): Boolean!
-	"""
-	Submit scene as draft to stash-box instance
-	"""
-	submitStashBoxSceneDraft(input: StashBoxDraftSubmissionInput!): ID
-	"""
-	Submit performer as draft to stash-box instance
-	"""
-	submitStashBoxPerformerDraft(input: StashBoxDraftSubmissionInput!): ID
-	"""
 	Backup the database. Optionally returns a link to download the database file
 	"""
 	backupDatabase(input: BackupDatabaseInput!): String
@@ -3288,34 +3191,6 @@ type Mutation {
 	DANGEROUS: Execute an arbitrary SQL statement without returning any rows.
 	"""
 	execSQL(sql: String!, args: [Any]): SQLExecResult!
-	"""
-	Run batch performer tag task. Returns the job ID.
-	"""
-	stashBoxBatchPerformerTag(input: StashBoxBatchTagInput!): String!
-	"""
-	Run batch studio tag task. Returns the job ID.
-	"""
-	stashBoxBatchStudioTag(input: StashBoxBatchTagInput!): String!
-	"""
-	Run batch tag tag task. Returns the job ID.
-	"""
-	stashBoxBatchTagTag(input: StashBoxBatchTagInput!): String!
-	"""
-	Enables DLNA for an optional duration. Has no effect if DLNA is enabled by default
-	"""
-	enableDLNA(input: EnableDLNAInput!): Boolean!
-	"""
-	Disables DLNA for an optional duration. Has no effect if DLNA is disabled by default
-	"""
-	disableDLNA(input: DisableDLNAInput!): Boolean!
-	"""
-	Enables an IP address for DLNA for an optional duration
-	"""
-	addTempDLNAIP(input: AddTempDLNAIPInput!): Boolean!
-	"""
-	Removes an IP address from the temporary DLNA whitelist
-	"""
-	removeTempDLNAIP(input: RemoveTempDLNAIPInput!): Boolean!
 	"""
 	NG-only (deviceBus). Registers (or refreshes) a device on the ephemeral presence bus and returns
 	its current Device record. Call on connect and as a heartbeat (~every 20s); each call upserts the
@@ -4110,11 +3985,9 @@ type Query {
 		"""
 		locale: String = "en"
 	): Directory!
-	validateStashBoxCredentials(input: StashBoxInput!): StashBoxValidationResult!
 	systemStatus: SystemStatus!
 	jobQueue: [Job!]
 	findJob(input: FindJobInput!): Job
-	dlnaStatus: DLNAStatus!
 	allScenes: [Scene!]! @deprecated(reason: "Use findScenes instead")
 	allSceneMarkers: [SceneMarker!]! @deprecated(reason: "Use findSceneMarkers instead")
 	allImages: [Image!]! @deprecated(reason: "Use findImages instead")
@@ -4127,14 +4000,17 @@ type Query {
 	latestversion: LatestVersion!
 	serverCapabilities: ServerCapabilities!
 	"""
+	NG-only (viewerPreferences). Shared presentation defaults for native viewers.
+	Currently scoped to Stash TV Home Hidden Tags. Gate on features containing
+	"viewerPreferences".
+	"""
+	viewerPreferences: ViewerPreferences!
+	"""
 	NG-only (deviceBus). The currently-online devices on the ephemeral presence bus (those whose
 	lastSeen is within the presence TTL). Backs the "send to device" picker and the online-devices
 	list. In-memory only — nothing here is persisted. Gate on features containing "deviceBus".
 	"""
 	devices: [Device!]!
-}
-input RemoveTempDLNAIPInput {
-	address: String!
 }
 input ReorderSubGroupsInput {
 	"""
@@ -5262,7 +5138,6 @@ type ScrapedScene {
 	groups: [ScrapedGroup!]
 	remote_site_id: String
 	duration: Int
-	fingerprints: [StashBoxFingerprint!]
 }
 input ScrapedSceneInput {
 	title: String
@@ -5336,29 +5211,13 @@ type Scraper {
 }
 type ScraperSource {
 	"""
-	Index of the configured stash-box instance to use. Should be unset if scraper_id is set
-	"""
-	stash_box_index: Int @deprecated(reason: "use stash_box_endpoint")
-	"""
-	Stash-box endpoint
-	"""
-	stash_box_endpoint: String
-	"""
-	Scraper ID to scrape with. Should be unset if stash_box_endpoint/stash_box_index is set
+	Scraper ID to scrape with.
 	"""
 	scraper_id: ID
 }
 input ScraperSourceInput {
 	"""
-	Index of the configured stash-box instance to use. Should be unset if scraper_id is set
-	"""
-	stash_box_index: Int @deprecated(reason: "use stash_box_endpoint")
-	"""
-	Stash-box endpoint
-	"""
-	stash_box_endpoint: String
-	"""
-	Scraper ID to scrape with. Should be unset if stash_box_endpoint/stash_box_index is set
+	Scraper ID to scrape with.
 	"""
 	scraper_id: ID
 }
@@ -5451,124 +5310,6 @@ enum SortDirectionEnum {
 	ASC
 	DESC
 }
-type StashBox {
-	endpoint: String!
-	api_key: String!
-	name: String!
-	max_requests_per_minute: Int!
-}
-"""
-Accepts either ids, or a combination of names and stash_ids.
-If none are set, then all existing items will be tagged.
-"""
-input StashBoxBatchTagInput {
-	"""
-	Stash endpoint to use for the tagging
-	"""
-	endpoint: Int @deprecated(reason: "use stash_box_endpoint")
-	"""
-	Endpoint of the stash-box instance to use
-	"""
-	stash_box_endpoint: String
-	"""
-	Fields to exclude when executing the tagging
-	"""
-	exclude_fields: [String!]
-	"""
-	Refresh items already tagged by StashBox if true. Only tag items with no StashBox tagging if false
-	"""
-	refresh: Boolean!
-	"""
-	If batch adding studios, should their parent studios also be created?
-	"""
-	createParent: Boolean!
-	"""
-	IDs in stash of the items to update.
-	If set, names and stash_ids fields will be ignored.
-	"""
-	ids: [ID!]
-	"""
-	Names of the items in the stash-box instance to search for and create
-	"""
-	names: [String!]
-	"""
-	Stash IDs of the items in the stash-box instance to search for and create
-	"""
-	stash_ids: [String!]
-	"""
-	IDs in stash of the performers to update
-	"""
-	performer_ids: [ID!] @deprecated(reason: "use ids")
-	"""
-	Names of the performers in the stash-box instance to search for and create
-	"""
-	performer_names: [String!] @deprecated(reason: "use names")
-}
-input StashBoxDraftSubmissionInput {
-	id: String!
-	stash_box_index: Int @deprecated(reason: "use stash_box_endpoint")
-	stash_box_endpoint: String
-}
-type StashBoxFingerprint {
-	algorithm: String!
-	hash: String!
-	duration: Int!
-}
-input StashBoxFingerprintSubmissionInput {
-	scene_ids: [String!]!
-	stash_box_index: Int @deprecated(reason: "use stash_box_endpoint")
-	stash_box_endpoint: String
-}
-input StashBoxInput {
-	endpoint: String!
-	api_key: String!
-	name: String!
-	max_requests_per_minute: Int
-}
-input StashBoxPerformerQueryInput {
-	"""
-	Index of the configured stash-box instance to use
-	"""
-	stash_box_index: Int @deprecated(reason: "use stash_box_endpoint")
-	"""
-	Endpoint of the stash-box instance to use
-	"""
-	stash_box_endpoint: String
-	"""
-	Instructs query by scene fingerprints
-	"""
-	performer_ids: [ID!]
-	"""
-	Query by query string
-	"""
-	q: String
-}
-type StashBoxPerformerQueryResult {
-	query: String!
-	results: [ScrapedPerformer!]!
-}
-input StashBoxSceneQueryInput {
-	"""
-	Index of the configured stash-box instance to use
-	"""
-	stash_box_index: Int @deprecated(reason: "use stash_box_endpoint")
-	"""
-	Endpoint of the stash-box instance to use
-	"""
-	stash_box_endpoint: String
-	"""
-	Instructs query by scene fingerprints
-	"""
-	scene_ids: [ID!]
-	"""
-	Query by query string
-	"""
-	q: String
-}
-type StashBoxValidationResult {
-	valid: Boolean!
-	status: String!
-}
 type StashConfig {
 	path: String!
 	excludeVideo: Boolean!
@@ -5609,6 +5350,18 @@ input StashIDsCriterionInput {
 	endpoint: String
 	stash_ids: [String]
 	modifier: CriterionModifier!
+}
+type StashTVHomePreferences {
+	excludedTagIDs: [ID!]!
+}
+input StashTVHomePreferencesInput {
+	excludedTagIDs: [ID!]
+}
+type StashTVViewerPreferences {
+	home: StashTVHomePreferences!
+}
+input StashTVViewerPreferencesInput {
+	home: StashTVHomePreferencesInput
 }
 type StatsResultType {
 	scene_count: Int!
@@ -6153,5 +5906,11 @@ input VideoFileFilterInput {
 	captions: StringCriterionInput
 	interactive: Boolean
 	interactive_speed: IntCriterionInput
+}
+type ViewerPreferences {
+	stashTV: StashTVViewerPreferences!
+}
+input ViewerPreferencesInput {
+	stashTV: StashTVViewerPreferencesInput
 }
 union VisualFile = VideoFile | ImageFile

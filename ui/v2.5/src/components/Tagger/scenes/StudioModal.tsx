@@ -121,7 +121,7 @@ const StudioDetails: React.FC<IStudioDetailsProps> = ({
     );
   }
 
-  function maybeRenderStashBoxLink() {
+  function maybeRenderRemoteIDLink() {
     const base = endpoint?.match(/https?:\/\/.*?\//)?.[0];
     if (!base || !studio.remote_site_id) return;
 
@@ -149,7 +149,7 @@ const StudioDetails: React.FC<IStudioDetailsProps> = ({
             true,
             "parent_studio"
           )}
-          {maybeRenderStashBoxLink()}
+          {maybeRenderRemoteIDLink()}
         </div>
       </div>
     </div>

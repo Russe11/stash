@@ -29,7 +29,6 @@ import { PerformerImagesPanel } from "./PerformerImagesPanel";
 import { PerformerAppearsWithPanel } from "./performerAppearsWithPanel";
 import { PerformerEditPanel } from "./PerformerEditPanel";
 import { PerformerMergeModal } from "../PerformerMergeDialog";
-import { PerformerSubmitButton } from "./PerformerSubmitButton";
 import { useRatingKeybinds } from "src/hooks/keybinds";
 import { DetailImage } from "src/components/Shared/DetailImage";
 import { useLoadStickyHeader } from "src/hooks/detailsPanel";
@@ -504,9 +503,6 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                         customButtons={
                           <>
                             {renderMergeButton()}
-                            <div>
-                              <PerformerSubmitButton performer={performer} />
-                            </div>
                           </>
                         }
                       ></DetailsEditNavbar>

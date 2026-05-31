@@ -1,7 +1,7 @@
 ---
 name: ideas
 description: Future work / features for the Stash NG server fork
-updated: 2026-05-29
+updated: 2026-05-31
 ---
 
 # Ideas
@@ -21,3 +21,6 @@ Added `serverCapabilities { edition apiVersion features }` (`graphql/schema/type
 
 ### 2026-05-29 — entityChanged GraphQL subscription (DONE — clients to adopt)
 Added NG subscription `entityChanged(types: [String!]): EntityChangeEvent!` (`EntityChangeEvent { entity, id, operation, time }`, metadata-only — no titles/paths, mirroring the webhook payload) over the WS transport already wired in `internal/api/server.go`. Published from the single post-commit choke point `pkg/plugin/plugins.go` (`ExecutePostHooks`, same call that fires webhooks — no new hooks in N places) via a small in-process broadcaster `pkg/plugin/entity_events.go` (`EntityEventBroadcaster`/`EntityEvents`, non-blocking 256-event-buffered fan-out). Resolver `internal/api/resolver_subscription_entity.go` filters by `types` and cleans up on disconnect. Capability flag `entityChanged` added to `NGFeatures()` (no `NGAPIVersion` bump — additive). **Client follow-up:** viewers/manager can live-update on `features.contains("entityChanged")` by subscribing and refetching the entity by id (or pruning on Destroy), falling back to `deletedSince`+poll when absent. Treat the feed as a refetch hint, not a gap-free log (slow subscribers drop events); use `deletedSince` for authoritative deletion reconciliation.
+
+### 2026-05-31 — Roadmap server enablers: export lane, identify readiness, and future poster/API-key contracts
+From the root feature roadmap (`/Users/russelllewis/projects/Stash/docs/reviews/feature-roadmap-2026-05-31.md`): before adding more native manager workflows, harden broad `find*` traversal with an explicit interactive cap plus manager export/snapshot path, add scraper-script timeouts and expose enough scraper/stash-box configuration for a macOS Identify workbench, close the remaining file-op resolver coverage gaps, and treat future `Scene.poster_path` / per-device API keys as additive NG contracts with capability flags rather than ad hoc client assumptions.

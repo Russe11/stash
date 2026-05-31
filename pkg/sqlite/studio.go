@@ -489,7 +489,7 @@ func (qb *StudioStore) FindByStashID(ctx context.Context, stashID models.StashID
 	return ret, nil
 }
 
-func (qb *StudioStore) FindByStashIDStatus(ctx context.Context, hasStashID bool, stashboxEndpoint string) ([]*models.Studio, error) {
+func (qb *StudioStore) FindByStashIDStatus(ctx context.Context, hasStashID bool, remoteEndpoint string) ([]*models.Studio, error) {
 	table := qb.table()
 	sq := dialect.From(table).LeftJoin(
 		studiosStashIDsJoinTable,
@@ -499,7 +499,7 @@ func (qb *StudioStore) FindByStashIDStatus(ctx context.Context, hasStashID bool,
 	if hasStashID {
 		sq = sq.Where(
 			studiosStashIDsJoinTable.Col("stash_id").IsNotNull(),
-			studiosStashIDsJoinTable.Col("endpoint").Eq(stashboxEndpoint),
+			studiosStashIDsJoinTable.Col("endpoint").Eq(remoteEndpoint),
 		)
 	} else {
 		sq = sq.Where(
@@ -510,7 +510,7 @@ func (qb *StudioStore) FindByStashIDStatus(ctx context.Context, hasStashID bool,
 	ret, err := qb.findBySubquery(ctx, sq)
 
 	if err != nil {
-		return nil, fmt.Errorf("getting studios for stash-box endpoint %s: %w", stashboxEndpoint, err)
+		return nil, fmt.Errorf("getting studios for stash ID endpoint %s: %w", remoteEndpoint, err)
 	}
 
 	return ret, nil

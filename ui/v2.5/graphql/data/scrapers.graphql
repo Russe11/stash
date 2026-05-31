@@ -207,11 +207,6 @@ fragment ScrapedSceneData on ScrapedScene {
     ...ScrapedSceneGroupData
   }
 
-  fingerprints {
-    hash
-    algorithm
-    duration
-  }
 }
 
 fragment ScrapedGalleryData on ScrapedGallery {
@@ -252,58 +247,6 @@ fragment ScrapedImageData on ScrapedImage {
   }
 
   performers {
-    ...ScrapedScenePerformerData
-  }
-}
-
-fragment ScrapedStashBoxSceneData on ScrapedScene {
-  title
-  code
-  details
-  director
-  url
-  date
-  image
-  remote_site_id
-  duration
-
-  file {
-    size
-    duration
-    video_codec
-    audio_codec
-    width
-    height
-    framerate
-    bitrate
-  }
-
-  fingerprints {
-    hash
-    algorithm
-    duration
-  }
-
-  studio {
-    ...ScrapedSceneStudioData
-  }
-
-  tags {
-    ...ScrapedSceneTagData
-  }
-
-  performers {
-    ...ScrapedScenePerformerData
-  }
-
-  groups {
-    ...ScrapedSceneGroupData
-  }
-}
-
-fragment ScrapedStashBoxPerformerData on StashBoxPerformerQueryResult {
-  query
-  results {
     ...ScrapedScenePerformerData
   }
 }

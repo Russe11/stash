@@ -35,6 +35,8 @@ const (
 	sceneURLColumn        = "url"
 	scenesViewDatesTable  = "scenes_view_dates"
 	sceneViewDateColumn   = "view_date"
+	scenesPlayCountsTable = "scenes_play_counts"
+	scenePlayCountColumn  = "play_count"
 	scenesODatesTable     = "scenes_o_dates"
 	sceneODateColumn      = "o_date"
 
@@ -1322,7 +1324,7 @@ func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindF
 		addFolderTable()
 		query.sortAndPagination += " ORDER BY COALESCE(scenes.title, files.basename) COLLATE NATURAL_CI " + direction + ", folders.path COLLATE NATURAL_CI " + direction
 	case "play_count":
-		query.sortAndPagination += getCountSort(sceneTable, scenesViewDatesTable, sceneIDColumn, direction)
+		query.sortAndPagination += fmt.Sprintf(" ORDER BY ((SELECT COUNT(*) FROM %s AS sort WHERE sort.%s = %s.id) + COALESCE((SELECT %s FROM %s AS aggregate_sort WHERE aggregate_sort.%s = %s.id), 0)) %s", scenesViewDatesTable, sceneIDColumn, sceneTable, scenePlayCountColumn, scenesPlayCountsTable, sceneIDColumn, sceneTable, getSortDirection(direction))
 	case "last_played_at":
 		query.sortAndPagination += fmt.Sprintf(" ORDER BY (SELECT MAX(view_date) FROM %s AS sort WHERE sort.%s = %s.id) %s", scenesViewDatesTable, sceneIDColumn, sceneTable, getSortDirection(direction))
 	case "last_o_at":

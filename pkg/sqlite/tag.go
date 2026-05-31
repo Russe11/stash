@@ -630,7 +630,7 @@ func (qb *TagStore) FindByStashID(ctx context.Context, stashID models.StashID) (
 	return ret, nil
 }
 
-func (qb *TagStore) FindByStashIDStatus(ctx context.Context, hasStashID bool, stashboxEndpoint string) ([]*models.Tag, error) {
+func (qb *TagStore) FindByStashIDStatus(ctx context.Context, hasStashID bool, remoteEndpoint string) ([]*models.Tag, error) {
 	table := qb.table()
 	sq := dialect.From(table).LeftJoin(
 		tagsStashIDsJoinTable,
@@ -640,7 +640,7 @@ func (qb *TagStore) FindByStashIDStatus(ctx context.Context, hasStashID bool, st
 	if hasStashID {
 		sq = sq.Where(
 			tagsStashIDsJoinTable.Col("stash_id").IsNotNull(),
-			tagsStashIDsJoinTable.Col("endpoint").Eq(stashboxEndpoint),
+			tagsStashIDsJoinTable.Col("endpoint").Eq(remoteEndpoint),
 		)
 	} else {
 		sq = sq.Where(
@@ -654,7 +654,7 @@ func (qb *TagStore) FindByStashIDStatus(ctx context.Context, hasStashID bool, st
 
 	ret, err := qb.getMany(ctx, idsQuery)
 	if err != nil {
-		return nil, fmt.Errorf("getting tags for stash-box endpoint %s: %w", stashboxEndpoint, err)
+		return nil, fmt.Errorf("getting tags for stash ID endpoint %s: %w", remoteEndpoint, err)
 	}
 
 	return ret, nil

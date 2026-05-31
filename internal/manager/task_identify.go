@@ -4,18 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/stashapp/stash/internal/identify"
 	"github.com/stashapp/stash/pkg/job"
 	"github.com/stashapp/stash/pkg/logger"
-	"github.com/stashapp/stash/pkg/match"
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/scene"
 	"github.com/stashapp/stash/pkg/scraper"
 	"github.com/stashapp/stash/pkg/sliceutil/stringslice"
-	"github.com/stashapp/stash/pkg/stashbox"
-	"github.com/stashapp/stash/pkg/txn"
 )
 
 var ErrInput = errors.New("invalid request input")
@@ -24,15 +20,13 @@ type IdentifyJob struct {
 	postHookExecutor identify.SceneUpdatePostHookExecutor
 	input            identify.Options
 
-	stashBoxes []*models.StashBox
-	progress   *job.Progress
+	progress *job.Progress
 }
 
 func CreateIdentifyJob(input identify.Options) *IdentifyJob {
 	return &IdentifyJob{
 		postHookExecutor: instance.PluginCache,
 		input:            input,
-		stashBoxes:       instance.Config.GetStashBoxes(),
 	}
 }
 
@@ -163,44 +157,22 @@ func (j *IdentifyJob) identifyScene(ctx context.Context, s *models.Scene, source
 func (j *IdentifyJob) getSources() ([]identify.ScraperSource, error) {
 	var ret []identify.ScraperSource
 	for _, source := range j.input.Sources {
-		// get scraper source
-		stashBox, err := j.getStashBox(source.Source)
-		if err != nil {
-			return nil, err
+		if source.Source.ScraperID == nil {
+			return nil, fmt.Errorf("%w: scraper_id must be set", ErrInput)
 		}
 
-		var src identify.ScraperSource
-		if stashBox != nil {
-			matcher := match.SceneRelationships{
-				PerformerFinder: instance.Repository.Performer,
-				TagFinder:       instance.Repository.Tag,
-				StudioFinder:    instance.Repository.Studio,
-			}
+		scraperID := *source.Source.ScraperID
+		s := instance.ScraperCache.GetScraper(scraperID)
+		if s == nil {
+			return nil, fmt.Errorf("%w: scraper with id %q", models.ErrNotFound, scraperID)
+		}
 
-			src = identify.ScraperSource{
-				Name: "stash-box: " + stashBox.Endpoint,
-				Scraper: stashboxSource{
-					Client:                 stashbox.NewClient(*stashBox, stashbox.ExcludeTagPatterns(instance.Config.GetScraperExcludeTagPatterns())),
-					endpoint:               stashBox.Endpoint,
-					txnManager:             instance.Repository.TxnManager,
-					sceneFingerprintGetter: instance.SceneService,
-					matcher:                matcher,
-				},
-				RemoteSite: stashBox.Endpoint,
-			}
-		} else {
-			scraperID := *source.Source.ScraperID
-			s := instance.ScraperCache.GetScraper(scraperID)
-			if s == nil {
-				return nil, fmt.Errorf("%w: scraper with id %q", models.ErrNotFound, scraperID)
-			}
-			src = identify.ScraperSource{
-				Name: s.Name,
-				Scraper: scraperSource{
-					cache:     instance.ScraperCache,
-					scraperID: scraperID,
-				},
-			}
+		src := identify.ScraperSource{
+			Name: s.Name,
+			Scraper: scraperSource{
+				cache:     instance.ScraperCache,
+				scraperID: scraperID,
+			},
 		}
 
 		src.Options = source.Options
@@ -208,100 +180,6 @@ func (j *IdentifyJob) getSources() ([]identify.ScraperSource, error) {
 	}
 
 	return ret, nil
-}
-
-func (j *IdentifyJob) getStashBox(src *scraper.Source) (*models.StashBox, error) {
-	if src.ScraperID != nil {
-		return nil, nil
-	}
-
-	// must be stash-box
-	if src.StashBoxIndex == nil && src.StashBoxEndpoint == nil {
-		return nil, fmt.Errorf("%w: stash_box_index or stash_box_endpoint or scraper_id must be set", ErrInput)
-	}
-
-	return resolveStashBox(j.stashBoxes, *src)
-}
-
-func resolveStashBox(sb []*models.StashBox, source scraper.Source) (*models.StashBox, error) {
-	if source.StashBoxIndex != nil {
-		index := source.StashBoxIndex
-		if *index < 0 || *index >= len(sb) {
-			return nil, fmt.Errorf("%w: invalid stash_box_index: %d", models.ErrScraperSource, index)
-		}
-
-		return sb[*index], nil
-	}
-
-	if source.StashBoxEndpoint != nil {
-		var ret *models.StashBox
-		endpoint := *source.StashBoxEndpoint
-		for _, b := range sb {
-			if strings.EqualFold(endpoint, b.Endpoint) {
-				ret = b
-			}
-		}
-
-		if ret == nil {
-			return nil, fmt.Errorf(`%w: stash-box with endpoint "%s"`, models.ErrNotFound, endpoint)
-		}
-
-		return ret, nil
-	}
-
-	// neither stash-box inputs were provided, so assume it is a scraper
-
-	return nil, nil
-}
-
-type stashboxSource struct {
-	*stashbox.Client
-	endpoint string
-
-	txnManager             models.TxnManager
-	sceneFingerprintGetter sceneFingerprintGetter
-	matcher                match.SceneRelationships
-}
-
-type sceneFingerprintGetter interface {
-	GetScenesFingerprints(ctx context.Context, ids []int) ([]models.Fingerprints, error)
-}
-
-func (s stashboxSource) ScrapeScenes(ctx context.Context, sceneID int) ([]*models.ScrapedScene, error) {
-	var fps []models.Fingerprints
-	if err := txn.WithReadTxn(ctx, s.txnManager, func(ctx context.Context) error {
-		var err error
-		fps, err = s.sceneFingerprintGetter.GetScenesFingerprints(ctx, []int{sceneID})
-		return err
-	}); err != nil {
-		return nil, fmt.Errorf("error getting scene fingerprints: %w", err)
-	}
-
-	results, err := s.FindSceneByFingerprints(ctx, fps[0])
-	if err != nil {
-		return nil, fmt.Errorf("error querying stash-box using scene ID %d: %w", sceneID, err)
-	}
-
-	if err := txn.WithReadTxn(ctx, s.txnManager, func(ctx context.Context) error {
-		for _, ret := range results {
-			if err := s.matcher.MatchRelationships(ctx, ret, s.endpoint); err != nil {
-				return err
-			}
-		}
-		return nil
-	}); err != nil {
-		return nil, fmt.Errorf("error matching scene relationships: %w", err)
-	}
-
-	if len(results) > 0 {
-		return results, nil
-	}
-
-	return nil, nil
-}
-
-func (s stashboxSource) String() string {
-	return fmt.Sprintf("stash-box %s", s.endpoint)
 }
 
 type scraperSource struct {

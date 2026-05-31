@@ -2641,34 +2641,34 @@ func TestPerformerStore_FindByStashIDStatus(t *testing.T) {
 		stashID models.StashID
 	}
 	tests := []struct {
-		name             string
-		hasStashID       bool
-		stashboxEndpoint string
-		include          []int
-		exclude          []int
-		wantErr          bool
+		name           string
+		hasStashID     bool
+		remoteEndpoint string
+		include        []int
+		exclude        []int
+		wantErr        bool
 	}{
 		{
-			name:             "existing",
-			hasStashID:       true,
-			stashboxEndpoint: getPerformerStringValue(performerIdxWithScene, "endpoint"),
-			include:          []int{performerIdxWithScene},
-			wantErr:          false,
+			name:           "existing",
+			hasStashID:     true,
+			remoteEndpoint: getPerformerStringValue(performerIdxWithScene, "endpoint"),
+			include:        []int{performerIdxWithScene},
+			wantErr:        false,
 		},
 		{
-			name:             "non-existing",
-			hasStashID:       true,
-			stashboxEndpoint: getPerformerStringValue(performerIdxWithScene, "non-existing"),
-			exclude:          []int{performerIdxWithScene},
-			wantErr:          false,
+			name:           "non-existing",
+			hasStashID:     true,
+			remoteEndpoint: getPerformerStringValue(performerIdxWithScene, "non-existing"),
+			exclude:        []int{performerIdxWithScene},
+			wantErr:        false,
 		},
 		{
-			name:             "!hasStashID",
-			hasStashID:       false,
-			stashboxEndpoint: getPerformerStringValue(performerIdxWithScene, "endpoint"),
-			include:          []int{performerIdxWithTwoScenes},
-			exclude:          []int{performerIdx2WithScene},
-			wantErr:          false,
+			name:           "!hasStashID",
+			hasStashID:     false,
+			remoteEndpoint: getPerformerStringValue(performerIdxWithScene, "endpoint"),
+			include:        []int{performerIdxWithTwoScenes},
+			exclude:        []int{performerIdx2WithScene},
+			wantErr:        false,
 		},
 	}
 
@@ -2676,7 +2676,7 @@ func TestPerformerStore_FindByStashIDStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		runWithRollbackTxn(t, tt.name, func(t *testing.T, ctx context.Context) {
-			got, err := qb.FindByStashIDStatus(ctx, tt.hasStashID, tt.stashboxEndpoint)
+			got, err := qb.FindByStashIDStatus(ctx, tt.hasStashID, tt.remoteEndpoint)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("PerformerStore.FindByStashIDStatus() error = %v, wantErr %v", err, tt.wantErr)
 				return

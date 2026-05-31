@@ -16,7 +16,7 @@ type SceneService interface {
 	Destroy(ctx context.Context, scene *models.Scene, fileDeleter *scene.FileDeleter, deleteGenerated, deleteFile, destroyFileEntry bool) error
 
 	FindByIDs(ctx context.Context, ids []int, load ...scene.LoadRelationshipOption) ([]*models.Scene, error)
-	sceneFingerprintGetter
+	GetScenesFingerprints(ctx context.Context, ids []int) ([]models.Fingerprints, error)
 }
 
 type ImageService interface {

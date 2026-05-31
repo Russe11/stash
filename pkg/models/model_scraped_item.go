@@ -671,16 +671,15 @@ type ScrapedScene struct {
 	URLs     []string `json:"urls"`
 	Date     *string  `json:"date"`
 	// This should be a base64 encoded data URL
-	Image        *string                `json:"image"`
-	File         *SceneFileType         `json:"file"`
-	Studio       *ScrapedStudio         `json:"studio"`
-	Tags         []*ScrapedTag          `json:"tags"`
-	Performers   []*ScrapedPerformer    `json:"performers"`
-	Groups       []*ScrapedGroup        `json:"groups"`
-	Movies       []*ScrapedMovie        `json:"movies"`
-	RemoteSiteID *string                `json:"remote_site_id"`
-	Duration     *int                   `json:"duration"`
-	Fingerprints []*StashBoxFingerprint `json:"fingerprints"`
+	Image        *string             `json:"image"`
+	File         *SceneFileType      `json:"file"`
+	Studio       *ScrapedStudio      `json:"studio"`
+	Tags         []*ScrapedTag       `json:"tags"`
+	Performers   []*ScrapedPerformer `json:"performers"`
+	Groups       []*ScrapedGroup     `json:"groups"`
+	Movies       []*ScrapedMovie     `json:"movies"`
+	RemoteSiteID *string             `json:"remote_site_id"`
+	Duration     *int                `json:"duration"`
 }
 
 func (ScrapedScene) IsScrapedContent() {}

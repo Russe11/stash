@@ -206,7 +206,7 @@ const PerformerModal: React.FC<IPerformerModalProps> = ({
     );
   }
 
-  function maybeRenderStashBoxLink() {
+  function maybeRenderRemoteIDLink() {
     const base = endpoint?.match(/https?:\/\/.*?\//)?.[0];
     if (!base || !performer.remote_site_id) return;
 
@@ -332,7 +332,7 @@ const PerformerModal: React.FC<IPerformerModalProps> = ({
           {maybeRenderField("weight", performer.weight, false)}
           {maybeRenderField("details", performer.details)}
           {maybeRenderURLListField("urls", performer.urls)}
-          {maybeRenderStashBoxLink()}
+          {maybeRenderRemoteIDLink()}
         </div>
         {maybeRenderImage()}
       </div>

@@ -21,7 +21,6 @@ import {
   circumcisedToString,
   stringToCircumcised,
 } from "src/utils/circumcised";
-import { IStashBox } from "./PerformerStashBoxModal";
 import { ScrapeResult } from "src/components/Shared/ScrapeDialog/scrapeResult";
 import { Tag } from "src/components/Tags/TagSelect";
 import { uniq } from "lodash-es";
@@ -127,7 +126,7 @@ interface IPerformerScrapeDialogProps {
   performer: Partial<GQL.PerformerUpdateInput>;
   performerTags: Tag[];
   scraped: GQL.ScrapedPerformer;
-  scraper?: GQL.Scraper | IStashBox;
+  scraper?: GQL.Scraper;
 
   onClose: (scrapedPerformer?: GQL.ScrapedPerformer) => void;
 }
@@ -137,7 +136,7 @@ export const PerformerScrapeDialog: React.FC<IPerformerScrapeDialogProps> = (
 ) => {
   const intl = useIntl();
 
-  const endpoint = (props.scraper as IStashBox)?.endpoint ?? undefined;
+  const endpoint = undefined;
 
   function getCurrentRemoteSiteID() {
     if (!endpoint) {

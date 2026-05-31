@@ -15,7 +15,7 @@ func postProcessTags(ctx context.Context, tqb models.TagNameFinder, scrapedTags 
 	ret = make([]*models.ScrapedTag, 0, len(scrapedTags))
 
 	for _, t := range scrapedTags {
-		// Pass empty string for endpoint since this is used by general scrapers, not just stash-box
+		// Pass empty string for endpoint since this is used by general scrapers, not tied to a specific remote
 		err := match.ScrapedTag(ctx, tqb, t, "")
 		if err != nil {
 			return nil, err

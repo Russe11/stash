@@ -1,7 +1,7 @@
 ---
 name: bugs
 description: Reproducible defects in the Stash NG server fork
-updated: 2026-05-29
+updated: 2026-05-31
 ---
 
 # Bugs

@@ -104,7 +104,6 @@ export const PluginApi = {
     Tags: () => import("./components/Tags/Tags"),
     Images: () => import("./components/Images/Images"),
 
-    SubmitStashBoxDraft: () => import("src/components/Dialogs/SubmitDraft"),
     GenerateDialog: () => import("./components/Dialogs/GenerateDialog"),
 
     ScenePlayer: () => import("src/components/ScenePlayer/ScenePlayer"),

@@ -926,7 +926,7 @@ func (qb *PerformerStore) FindByStashID(ctx context.Context, stashID models.Stas
 	return ret, nil
 }
 
-func (qb *PerformerStore) FindByStashIDStatus(ctx context.Context, hasStashID bool, stashboxEndpoint string) ([]*models.Performer, error) {
+func (qb *PerformerStore) FindByStashIDStatus(ctx context.Context, hasStashID bool, remoteEndpoint string) ([]*models.Performer, error) {
 	table := qb.table()
 	sq := dialect.From(table).LeftJoin(
 		performersStashIDsJoinTable,
@@ -936,7 +936,7 @@ func (qb *PerformerStore) FindByStashIDStatus(ctx context.Context, hasStashID bo
 	if hasStashID {
 		sq = sq.Where(
 			performersStashIDsJoinTable.Col("stash_id").IsNotNull(),
-			performersStashIDsJoinTable.Col("endpoint").Eq(stashboxEndpoint),
+			performersStashIDsJoinTable.Col("endpoint").Eq(remoteEndpoint),
 		)
 	} else {
 		sq = sq.Where(
@@ -947,7 +947,7 @@ func (qb *PerformerStore) FindByStashIDStatus(ctx context.Context, hasStashID bo
 	ret, err := qb.findBySubquery(ctx, sq)
 
 	if err != nil {
-		return nil, fmt.Errorf("getting performers for stash-box endpoint %s: %w", stashboxEndpoint, err)
+		return nil, fmt.Errorf("getting performers for stash ID endpoint %s: %w", remoteEndpoint, err)
 	}
 
 	return ret, nil

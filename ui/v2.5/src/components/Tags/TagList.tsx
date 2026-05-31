@@ -25,7 +25,6 @@ import {
   IItemListOperation,
 } from "../List/FilteredListToolbar";
 import { PatchComponent, PatchContainerComponent } from "src/patch";
-import { TagTagger } from "../Tagger/tags/TagTagger";
 import useFocus from "src/utils/focus";
 import {
   Sidebar,
@@ -79,10 +78,6 @@ const TagList: React.FC<{
         />
       );
     }
-    if (filter.displayMode === DisplayMode.Tagger) {
-      return <TagTagger tags={tags} />;
-    }
-
     return null;
   }
 );

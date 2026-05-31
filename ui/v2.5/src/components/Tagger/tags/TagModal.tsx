@@ -115,7 +115,7 @@ const TagModal: React.FC<ITagModalProps> = ({
     );
   }
 
-  function maybeRenderStashBoxLink() {
+  function maybeRenderRemoteIDLink() {
     const base = endpoint?.match(/https?:\/\/.*?\//)?.[0];
     if (!base || !tag.remote_site_id) return;
 
@@ -287,7 +287,7 @@ const TagModal: React.FC<ITagModalProps> = ({
               true,
               "parent_tags"
             )}
-            {maybeRenderStashBoxLink()}
+            {maybeRenderRemoteIDLink()}
           </div>
         </div>
       </div>

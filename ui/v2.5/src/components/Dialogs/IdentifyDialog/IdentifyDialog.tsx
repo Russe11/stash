@@ -13,10 +13,7 @@ import { useToast } from "src/hooks/Toast";
 import * as GQL from "src/core/generated-graphql";
 import { FormattedMessage, useIntl } from "react-intl";
 import { withoutTypename } from "src/utils/data";
-import {
-  SCRAPER_PREFIX,
-  STASH_BOX_PREFIX,
-} from "src/components/Tagger/constants";
+import { SCRAPER_PREFIX } from "src/components/Tagger/constants";
 import { DirectorySelectionDialog } from "src/components/Settings/Tasks/DirectorySelectionDialog";
 import { Manual } from "src/components/Help/Manual";
 import { IScraperSource } from "./constants";
@@ -98,16 +95,6 @@ export const IdentifyDialog: React.FC<IIdentifyDialogProps> = ({
     if (!configData || !scraperData) return;
 
     const ret: IScraperSource[] = [];
-
-    ret.push(
-      ...configData.configuration.general.stashBoxes.map((b, i) => {
-        return {
-          id: `${STASH_BOX_PREFIX}${i}`,
-          displayName: `stash-box: ${b.name}`,
-          stash_box_endpoint: b.endpoint,
-        };
-      })
-    );
 
     const scrapers = scraperData.listScrapers;
 
@@ -210,9 +197,7 @@ export const IdentifyDialog: React.FC<IIdentifyDialogProps> = ({
       const mappedSources = identifyDefaults.sources
         .map((s) => {
           const found = allSources.find(
-            (ss) =>
-              ss.scraper_id === s.source.scraper_id ||
-              ss.stash_box_endpoint === s.source.stash_box_endpoint
+            (ss) => ss.scraper_id === s.source.scraper_id
           );
 
           if (!found) return;
@@ -240,19 +225,12 @@ export const IdentifyDialog: React.FC<IIdentifyDialogProps> = ({
         setOptions(defaultOptions);
       }
     } else {
-      // default to first stash-box instance only
-      const stashBox = allSources.find((s) => s.stash_box_endpoint);
-
       // add auto-tag as well
       const autoTag = allSources.find(
         (s) => s.id === `${SCRAPER_PREFIX}${autoTagScraperID}`
       );
 
       const newSources: IScraperSource[] = [];
-      if (stashBox) {
-        newSources.push(stashBox);
-      }
-
       // sanity check - this should always be true
       if (autoTag) {
         // don't set organised by default
@@ -279,7 +257,6 @@ export const IdentifyDialog: React.FC<IIdentifyDialogProps> = ({
         return {
           source: {
             scraper_id: s.scraper_id,
-            stash_box_endpoint: s.stash_box_endpoint,
           },
           options: s.options,
         };

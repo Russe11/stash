@@ -7,7 +7,6 @@ import { StudioSelect, SelectObject } from "src/components/Shared/Select";
 import * as GQL from "src/core/generated-graphql";
 
 import { OptionalField } from "../IncludeButton";
-import { getStashboxBase } from "src/utils/stashbox";
 import { ExternalLink } from "src/components/Shared/ExternalLink";
 import { Link } from "react-router-dom";
 import { LinkButton } from "../LinkButton";
@@ -59,9 +58,6 @@ const StudioResult: React.FC<IStudioResultProps> = ({
     (stashID) => stashID.endpoint === endpoint && stashID.stash_id
   );
 
-  const stashboxStudioPrefix = endpoint
-    ? `${getStashboxBase(endpoint)}studios/`
-    : undefined;
   const studioURLPrefix = "/studios/";
 
   const handleSelect = (studios: SelectObject[]) => {
@@ -86,7 +82,7 @@ const StudioResult: React.FC<IStudioResultProps> = ({
           <b className="ml-2">
             <StudioLink
               studio={studio}
-              url={`${stashboxStudioPrefix}${studio.remote_site_id}`}
+              url={undefined}
             />
           </b>
         </div>
@@ -118,9 +114,7 @@ const StudioResult: React.FC<IStudioResultProps> = ({
   const selectedSource = !selectedID ? "skip" : "existing";
 
   const safeBuildStudioScraperLink = (id: string | null | undefined) => {
-    return stashboxStudioPrefix && id
-      ? `${stashboxStudioPrefix}${id}`
-      : undefined;
+    return undefined;
   };
 
   return (

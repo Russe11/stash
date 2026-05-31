@@ -2,13 +2,10 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/fsutil"
-	"github.com/stashapp/stash/pkg/models"
 	"golang.org/x/text/collate"
 )
 
@@ -62,7 +59,6 @@ func makeConfigResult() *ConfigResult {
 	return &ConfigResult{
 		General:   makeConfigGeneralResult(),
 		Interface: makeConfigInterfaceResult(),
-		Dlna:      makeConfigDLNAResult(),
 		Scraping:  makeConfigScrapingResult(),
 		Defaults:  makeConfigDefaultsResult(),
 		UI:        makeConfigUIResult(),
@@ -130,7 +126,6 @@ func makeConfigGeneralResult() *ConfigGeneralResult {
 		ImageExcludes:                 config.GetImageExcludes(),
 		WebhookUrls:                   config.GetWebhookURLs(),
 		CustomPerformerImageLocation:  &customPerformerImageLocation,
-		StashBoxes:                    config.GetStashBoxes(),
 		PythonPath:                    config.GetPythonPath(),
 		TranscodeInputArgs:            config.GetTranscodeInputArgs(),
 		TranscodeOutputArgs:           config.GetTranscodeOutputArgs(),
@@ -203,19 +198,6 @@ func makeConfigInterfaceResult() *ConfigInterfaceResult {
 	}
 }
 
-func makeConfigDLNAResult() *ConfigDLNAResult {
-	config := config.GetInstance()
-
-	return &ConfigDLNAResult{
-		ServerName:     config.GetDLNAServerName(),
-		Enabled:        config.GetDLNADefaultEnabled(),
-		Port:           config.GetDLNAPort(),
-		WhitelistedIPs: config.GetDLNADefaultIPWhitelist(),
-		Interfaces:     config.GetDLNAInterfaces(),
-		VideoSortOrder: config.GetVideoSortOrder(),
-	}
-}
-
 func makeConfigScrapingResult() *ConfigScrapingResult {
 	config := config.GetInstance()
 
@@ -247,42 +229,4 @@ func makeConfigDefaultsResult() *ConfigDefaultSettingsResult {
 
 func makeConfigUIResult() map[string]interface{} {
 	return config.GetInstance().GetUIConfiguration()
-}
-
-func (r *queryResolver) ValidateStashBoxCredentials(ctx context.Context, input config.StashBoxInput) (*StashBoxValidationResult, error) {
-	box := models.StashBox{Endpoint: input.Endpoint, APIKey: input.APIKey}
-	client := r.newStashBoxClient(box)
-
-	user, err := client.GetUser(ctx)
-
-	valid := user != nil && user.Me != nil
-	var status string
-	if valid {
-		status = fmt.Sprintf("Successfully authenticated as %s", user.Me.Name)
-	} else {
-		errorStr := strings.ToLower(err.Error())
-		switch {
-		case strings.Contains(errorStr, "doctype"):
-			// Index file returned rather than graphql
-			status = "Invalid endpoint"
-		case strings.Contains(errorStr, "request failed"):
-			status = "No response from server"
-		case strings.Contains(errorStr, "invalid character") ||
-			strings.Contains(errorStr, "illegal base64 data") ||
-			strings.Contains(errorStr, "unexpected end of json input") ||
-			strings.Contains(errorStr, "token contains an invalid number of segments"):
-			status = "Malformed API key."
-		case strings.Contains(errorStr, "signature is invalid"):
-			status = "Invalid or expired API key."
-		default:
-			status = fmt.Sprintf("Unknown error: %s", err)
-		}
-	}
-
-	result := StashBoxValidationResult{
-		Valid:  valid,
-		Status: status,
-	}
-
-	return &result, nil
 }

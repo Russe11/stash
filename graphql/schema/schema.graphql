@@ -278,7 +278,6 @@ type Query {
     "Desired collation locale. Determines the order of the directory result. eg. 'en-US', 'pt-BR', ..."
     locale: String = "en"
   ): Directory!
-  validateStashBoxCredentials(input: StashBoxInput!): StashBoxValidationResult!
 
   # System status
   systemStatus: SystemStatus!
@@ -286,8 +285,6 @@ type Query {
   # Job status
   jobQueue: [Job!]
   findJob(input: FindJobInput!): Job
-
-  dlnaStatus: DLNAStatus!
 
   # Get everything
 
@@ -312,6 +309,13 @@ type Query {
 
   # NG fork capability probe (absent on original upstream Stash)
   serverCapabilities: ServerCapabilities!
+
+  """
+  NG-only (viewerPreferences). Shared presentation defaults for native viewers.
+  Currently scoped to Stash TV Home Hidden Tags. Gate on features containing
+  "viewerPreferences".
+  """
+  viewerPreferences: ViewerPreferences!
 
   """
   NG-only (deviceBus). The currently-online devices on the ephemeral presence bus (those whose
@@ -361,9 +365,9 @@ type Mutation {
     reset_duration: Boolean
   ): Boolean!
 
-  "Increments the play count for the scene. Returns the new play count value."
+  "Increments the aggregate play count for the scene without storing play history. Returns the new play count value."
   sceneIncrementPlayCount(id: ID!): Int!
-    @deprecated(reason: "Use sceneAddPlay instead")
+    @deprecated(reason: "Use sceneAddPlay for timestamped play history")
 
   "Increments the play count for the scene. Uses the current time if none provided."
   sceneAddPlay(id: ID!, times: [Timestamp!]): HistoryMutationResult!
@@ -491,11 +495,17 @@ type Mutation {
   "Change general configuration options"
   configureGeneral(input: ConfigGeneralInput!): ConfigGeneralResult!
   configureInterface(input: ConfigInterfaceInput!): ConfigInterfaceResult!
-  configureDLNA(input: ConfigDLNAInput!): ConfigDLNAResult!
   configureScraping(input: ConfigScrapingInput!): ConfigScrapingResult!
   configureDefaults(
     input: ConfigDefaultSettingsInput!
   ): ConfigDefaultSettingsResult!
+
+  """
+  NG-only (viewerPreferences). Updates shared presentation defaults for native viewers.
+  Currently scoped to Stash TV Home Hidden Tags. Gate on features containing
+  "viewerPreferences".
+  """
+  updateViewerPreferences(input: ViewerPreferencesInput!): ViewerPreferences!
 
   "overwrites the entire plugin configuration for the given plugin"
   configurePlugin(plugin_id: ID!, input: Map!): Map!
@@ -611,16 +621,6 @@ type Mutation {
   stopJob(job_id: ID!): Boolean!
   stopAllJobs: Boolean!
 
-  "Submit fingerprints to stash-box instance"
-  submitStashBoxFingerprints(
-    input: StashBoxFingerprintSubmissionInput!
-  ): Boolean!
-
-  "Submit scene as draft to stash-box instance"
-  submitStashBoxSceneDraft(input: StashBoxDraftSubmissionInput!): ID
-  "Submit performer as draft to stash-box instance"
-  submitStashBoxPerformerDraft(input: StashBoxDraftSubmissionInput!): ID
-
   "Backup the database. Optionally returns a link to download the database file"
   backupDatabase(input: BackupDatabaseInput!): String
 
@@ -629,22 +629,6 @@ type Mutation {
 
   "DANGEROUS: Execute an arbitrary SQL statement without returning any rows."
   execSQL(sql: String!, args: [Any]): SQLExecResult!
-
-  "Run batch performer tag task. Returns the job ID."
-  stashBoxBatchPerformerTag(input: StashBoxBatchTagInput!): String!
-  "Run batch studio tag task. Returns the job ID."
-  stashBoxBatchStudioTag(input: StashBoxBatchTagInput!): String!
-  "Run batch tag tag task. Returns the job ID."
-  stashBoxBatchTagTag(input: StashBoxBatchTagInput!): String!
-
-  "Enables DLNA for an optional duration. Has no effect if DLNA is enabled by default"
-  enableDLNA(input: EnableDLNAInput!): Boolean!
-  "Disables DLNA for an optional duration. Has no effect if DLNA is disabled by default"
-  disableDLNA(input: DisableDLNAInput!): Boolean!
-  "Enables an IP address for DLNA for an optional duration"
-  addTempDLNAIP(input: AddTempDLNAIPInput!): Boolean!
-  "Removes an IP address from the temporary DLNA whitelist"
-  removeTempDLNAIP(input: RemoveTempDLNAIPInput!): Boolean!
 
   """
   NG-only (deviceBus). Registers (or refreshes) a device on the ephemeral presence bus and returns

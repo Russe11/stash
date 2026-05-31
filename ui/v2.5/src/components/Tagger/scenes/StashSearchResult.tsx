@@ -4,7 +4,6 @@ import { Badge, Button, Col, Form, Row } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import uniq from "lodash-es/uniq";
 import { blobToBase64 } from "base64-blob";
-import { distance } from "src/utils/hamming";
 import { faCheckCircle } from "@fortawesome/free-regular-svg-icons";
 import {
   faLink,
@@ -14,9 +13,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import * as GQL from "src/core/generated-graphql";
-import { HoverPopover } from "src/components/Shared/HoverPopover";
 import { Icon } from "src/components/Shared/Icon";
-import { SuccessIcon } from "src/components/Shared/SuccessIcon";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { TagSelect } from "src/components/Shared/Select";
 import { TruncatedText } from "src/components/Shared/TruncatedText";
@@ -31,7 +28,6 @@ import StudioResult from "./StudioResult";
 import { useInitialState } from "src/hooks/state";
 import { ExternalLink } from "src/components/Shared/ExternalLink";
 import { compareScenesForSort } from "./utils";
-import { StashIDPill } from "src/components/Shared/StashID";
 
 const getDurationIcon = (matchPercentage: number) => {
   if (matchPercentage > 65)
@@ -55,12 +51,9 @@ const getDurationStatus = (
 ) => {
   if (!stashDuration) return "";
 
-  const durations =
-    scene.fingerprints
-      ?.map((f) => f.duration)
-      .map((d) => Math.abs(d - stashDuration)) ?? [];
+  const durations: number[] = [];
 
-  if (!scene.duration && durations.length === 0) return "";
+  if (!scene.duration) return "";
 
   const matchCount = durations.filter((duration) => duration <= 5).length;
 
@@ -96,118 +89,6 @@ const getDurationStatus = (
       values={{ number: Math.floor(minDiff) }}
     />
   );
-};
-
-function matchPhashes(
-  scenePhashes: Pick<GQL.Fingerprint, "type" | "value">[],
-  fingerprints: GQL.StashBoxFingerprint[]
-) {
-  const phashes = fingerprints.filter((f) => f.algorithm === "PHASH");
-
-  const matches: { [key: string]: number } = {};
-  phashes.forEach((p) => {
-    let bestMatch = -1;
-    scenePhashes.forEach((fp) => {
-      const d = distance(p.hash, fp.value);
-
-      if (d <= 8 && (bestMatch === -1 || d < bestMatch)) {
-        bestMatch = d;
-      }
-    });
-
-    if (bestMatch !== -1) {
-      matches[p.hash] = bestMatch;
-    }
-  });
-
-  // convert to tuple and sort by distance descending
-  const entries = Object.entries(matches);
-  entries.sort((a, b) => {
-    return a[1] - b[1];
-  });
-
-  return entries;
-}
-
-const getFingerprintStatus = (
-  scene: IScrapedScene,
-  stashScene: GQL.SlimSceneDataFragment
-) => {
-  const checksumMatch = scene.fingerprints?.some((f) =>
-    stashScene.files.some((ff) =>
-      ff.fingerprints.some(
-        (fp) =>
-          fp.value === f.hash && (fp.type === "oshash" || fp.type === "md5")
-      )
-    )
-  );
-
-  const allPhashes = stashScene.files.reduce(
-    (pv: Pick<GQL.Fingerprint, "type" | "value">[], cv) => {
-      return [...pv, ...cv.fingerprints.filter((f) => f.type === "phash")];
-    },
-    []
-  );
-
-  const phashMatches = matchPhashes(allPhashes, scene.fingerprints ?? []);
-
-  const phashList = (
-    <div className="m-2">
-      {phashMatches.map((fp: [string, number]) => {
-        const hash = fp[0];
-        const d = fp[1];
-        return (
-          <div key={hash}>
-            <b>{hash}</b>
-            {d === 0 ? ", Exact match" : `, distance ${d}`}
-          </div>
-        );
-      })}
-    </div>
-  );
-
-  if (checksumMatch || phashMatches.length > 0)
-    return (
-      <div>
-        {phashMatches.length > 0 && (
-          <div className="font-weight-bold">
-            <SuccessIcon className="SceneTaggerIcon" />
-            <HoverPopover
-              placement="bottom"
-              content={phashList}
-              className="PHashPopover"
-            >
-              {phashMatches.length > 1 ? (
-                <FormattedMessage
-                  id="component_tagger.results.phash_matches"
-                  values={{
-                    count: phashMatches.length,
-                  }}
-                />
-              ) : (
-                <FormattedMessage
-                  id="component_tagger.results.hash_matches"
-                  values={{
-                    hash_type: <FormattedMessage id="media_info.phash" />,
-                  }}
-                />
-              )}
-            </HoverPopover>
-          </div>
-        )}
-        {checksumMatch && (
-          <div className="font-weight-bold">
-            <SuccessIcon className="mr-2" />
-            <FormattedMessage
-              id="component_tagger.results.hash_matches"
-              values={{
-                hash_type: <FormattedMessage id="media_info.md5" />,
-              }}
-            />
-          </div>
-        )}
-      </div>
-    );
 };
 
 interface IStashSearchResultProps {
@@ -390,34 +271,8 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
       sceneCreateInput.urls = stashScene.urls;
     }
 
-    const includeStashID = !excludedFieldList.includes("stash_ids");
-    if (
-      includeStashID &&
-      currentSource?.sourceInput.stash_box_endpoint &&
-      scene.remote_site_id
-    ) {
-      sceneCreateInput.stash_ids = [
-        ...(stashScene?.stash_ids
-          .map((s) => {
-            return {
-              endpoint: s.endpoint,
-              stash_id: s.stash_id,
-              updated_at: s.updated_at,
-            };
-          })
-          .filter(
-            (s) => s.endpoint !== currentSource.sourceInput.stash_box_endpoint
-          ) ?? []),
-        {
-          endpoint: currentSource.sourceInput.stash_box_endpoint,
-          stash_id: scene.remote_site_id,
-          updated_at: new Date().toISOString(),
-        },
-      ];
-    } else {
-      // #2348 - don't include stash_ids if we're not setting them
-      delete sceneCreateInput.stash_ids;
-    }
+    const includeStashID = false;
+    delete sceneCreateInput.stash_ids;
 
     await saveScene(sceneCreateInput, includeStashID);
   }
@@ -439,17 +294,6 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
       description: t.description ?? undefined,
       aliases: t.alias_list?.filter((a) => a) ?? undefined,
     };
-
-    // If the tag has a remote_site_id and we have an endpoint, include the stash_id
-    const endpoint = currentSource?.sourceInput.stash_box_endpoint;
-    if (!createInput && t.remote_site_id && endpoint) {
-      toCreate.stash_ids = [
-        {
-          endpoint: endpoint,
-          stash_id: t.remote_site_id,
-        },
-      ];
-    }
 
     const newTagID = await createNewTag(t, toCreate);
     if (newTagID !== undefined) {
@@ -674,27 +518,6 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
     }
   };
 
-  const maybeRenderStashBoxID = () => {
-    if (scene.remote_site_id && currentSource?.sourceInput.stash_box_endpoint) {
-      return (
-        <div className="scene-details">
-          <OptionalField
-            exclude={excludedFields[fields.stash_ids]}
-            setExclude={(v) => setExcludedField(fields.stash_ids, v)}
-          >
-            <StashIDPill
-              linkType="scenes"
-              stashID={{
-                endpoint: currentSource?.sourceInput.stash_box_endpoint,
-                stash_id: scene.remote_site_id,
-              }}
-            />
-          </OptionalField>
-        </div>
-      );
-    }
-  };
-
   const maybeRenderStudioField = () => {
     if (scene.studio) {
       return (
@@ -704,9 +527,7 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
             selectedID={studioID}
             setSelectedID={(id) => setStudioID(id)}
             onCreate={() => showStudioModal(scene.studio!)}
-            endpoint={
-              currentSource?.sourceInput.stash_box_endpoint ?? undefined
-            }
+            endpoint={undefined}
             onLink={async () => {
               await linkStudio(scene.studio!, studioID!);
             }}
@@ -735,9 +556,7 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
               onLink={async () => {
                 await linkPerformer(performer, performerIDs[performerIndex]!);
               }}
-              endpoint={
-                currentSource?.sourceInput.stash_box_endpoint ?? undefined
-              }
+              endpoint={undefined}
               key={`${performer.name ?? performer.remote_site_id ?? ""}`}
               ageFromDate={
                 !scene.date || excludedFields.date
@@ -833,12 +652,10 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
             {maybeRenderStudioCode()}
             {maybeRenderDateField()}
             {getDurationStatus(scene, stashSceneFile?.duration)}
-            {getFingerprintStatus(scene, stashScene)}
           </div>
         </div>
         {isActive && (
           <div className="d-flex flex-column">
-            {maybeRenderStashBoxID()}
             {maybeRenderDirector()}
             {maybeRenderURL()}
             {maybeRenderDetails()}

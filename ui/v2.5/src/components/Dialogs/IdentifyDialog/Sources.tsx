@@ -49,7 +49,6 @@ export const SourcesEditor: React.FC<ISourceEditor> = ({
       id: selectedSource.id,
       displayName: selectedSource.displayName,
       scraper_id: selectedSource.scraper_id,
-      stash_box_endpoint: selectedSource.stash_box_endpoint,
     });
   }
 
@@ -77,7 +76,7 @@ export const SourcesEditor: React.FC<ISourceEditor> = ({
         variant: "secondary",
       }}
       disabled={
-        (!source.scraper_id && !source.stash_box_endpoint) || editingField
+        !source.scraper_id || editingField
       }
     >
       <Form>

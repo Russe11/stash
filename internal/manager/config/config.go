@@ -2,13 +2,11 @@ package config
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 
 	"sync"
@@ -164,9 +162,6 @@ const (
 	ScraperCDPPath            = "scraper_cdp_path"
 	ScraperExcludeTagPatterns = "scraper_exclude_tag_patterns"
 
-	// stash-box options
-	StashBoxes = "stash_boxes"
-
 	PythonPath = "python_path"
 
 	// plugin options
@@ -274,18 +269,6 @@ const (
 	sslCertPath = "ssl_cert_path"
 	sslKeyPath  = "ssl_key_path"
 
-	// DLNA options
-	DLNAServerName         = "dlna.server_name"
-	DLNADefaultEnabled     = "dlna.default_enabled"
-	DLNADefaultIPWhitelist = "dlna.default_whitelist"
-	DLNAInterfaces         = "dlna.interfaces"
-
-	DLNAVideoSortOrder        = "dlna.video_sort_order"
-	dlnaVideoSortOrderDefault = "title"
-
-	DLNAPort        = "dlna.port"
-	DLNAPortDefault = 1338
-
 	// Logging options
 	LogFile               = "logfile"
 	LogOut                = "logout"
@@ -323,6 +306,9 @@ const (
 
 	// Developer options
 	ExtraBlobsPaths = "developer_options.extra_blob_paths"
+
+	// Viewer preferences
+	StashTVHomeExcludedTagIDs = "viewer_preferences.stash_tv.home.excluded_tag_ids"
 )
 
 // slice default values
@@ -339,16 +325,6 @@ type MissingConfigError struct {
 
 func (e MissingConfigError) Error() string {
 	return fmt.Sprintf("missing the following mandatory settings: %s", strings.Join(e.missingFields, ", "))
-}
-
-// StashBoxError represents configuration errors of Stash-Box
-type StashBoxError struct {
-	msg string
-}
-
-func (s *StashBoxError) Error() string {
-	// "Stash-box" is a proper noun and is therefore capitcalized
-	return "Stash-box: " + s.msg
 }
 
 type Config struct {
@@ -893,15 +869,6 @@ func (i *Config) GetScraperExcludeTagPatterns() []string {
 	return i.getStringSlice(ScraperExcludeTagPatterns)
 }
 
-func (i *Config) GetStashBoxes() []*models.StashBox {
-	var boxes []*models.StashBox
-	if err := i.unmarshalKey(StashBoxes, &boxes); err != nil {
-		logger.Warnf("error in unmarshalkey: %v", err)
-	}
-
-	return boxes
-}
-
 func (i *Config) GetDefaultPluginsPath() string {
 	// default to the same directory as the config file
 	fn := filepath.Join(i.GetConfigPath(), "plugins")
@@ -1204,43 +1171,6 @@ func (i *Config) ValidateCredentials(username string, password string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(authPWHash), []byte(password))
 
 	return username == authUser && err == nil
-}
-
-func stashBoxValidate(str string) bool {
-	u, err := url.Parse(str)
-	return err == nil && u.Scheme != "" && u.Host != "" && strings.HasSuffix(u.Path, "/graphql")
-}
-
-type StashBoxInput struct {
-	Endpoint             string `json:"endpoint"`
-	APIKey               string `json:"api_key"`
-	Name                 string `json:"name"`
-	MaxRequestsPerMinute int    `json:"max_requests_per_minute"`
-}
-
-func (i *Config) ValidateStashBoxes(boxes []*StashBoxInput) error {
-	isMulti := len(boxes) > 1
-
-	for _, box := range boxes {
-		// Validate each stash-box configuration field, return on error
-		if box.APIKey == "" {
-			return &StashBoxError{msg: "API Key cannot be blank"}
-		}
-
-		if box.Endpoint == "" {
-			return &StashBoxError{msg: "endpoint cannot be blank"}
-		}
-
-		if !stashBoxValidate(box.Endpoint) {
-			return &StashBoxError{msg: "endpoint is invalid"}
-		}
-
-		if isMulti && box.Name == "" {
-			return &StashBoxError{msg: "name cannot be blank"}
-		}
-	}
-
-	return nil
 }
 
 // GetMaxSessionAge gets the maximum age for session cookies, in seconds.
@@ -1620,6 +1550,31 @@ func (i *Config) SetDeleteTrashPath(value string) {
 	i.SetString(DeleteTrashPath, value)
 }
 
+func (i *Config) GetStashTVHomeExcludedTagIDs() []string {
+	return normalizeIDSlice(i.getStringSlice(StashTVHomeExcludedTagIDs))
+}
+
+func (i *Config) SetStashTVHomeExcludedTagIDs(value []string) {
+	i.SetInterface(StashTVHomeExcludedTagIDs, normalizeIDSlice(value))
+}
+
+func normalizeIDSlice(values []string) []string {
+	out := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	return out
+}
+
 // GetDefaultIdentifySettings returns the default Identify task settings.
 // Returns nil if the settings could not be unmarshalled, or if it
 // has not been set.
@@ -1708,71 +1663,6 @@ func (i *Config) GetDangerousAllowPublicWithoutAuth() bool {
 // DangerousAllowPublicWithoutAuth disabled. Returns an empty string otherwise.
 func (i *Config) GetSecurityTripwireAccessedFromPublicInternet() string {
 	return i.getString(SecurityTripwireAccessedFromPublicInternet)
-}
-
-// GetDLNAServerName returns the visible name of the DLNA server. If empty,
-// "stash" will be used.
-func (i *Config) GetDLNAServerName() string {
-	return i.getString(DLNAServerName)
-}
-
-// GetDLNADefaultEnabled returns true if the DLNA is enabled by default.
-func (i *Config) GetDLNADefaultEnabled() bool {
-	return i.getBool(DLNADefaultEnabled)
-}
-
-// GetDLNADefaultIPWhitelist returns a list of IP addresses/wildcards that
-// are allowed to use the DLNA service.
-func (i *Config) GetDLNADefaultIPWhitelist() []string {
-	return i.getStringSlice(DLNADefaultIPWhitelist)
-}
-
-// GetDLNAInterfaces returns a list of interface names to expose DLNA on. If
-// empty, runs on all interfaces.
-func (i *Config) GetDLNAInterfaces() []string {
-	return i.getStringSlice(DLNAInterfaces)
-}
-
-// GetDLNAPort returns the port to run the DLNA server on. If empty, 1338
-// will be used.
-func (i *Config) GetDLNAPort() int {
-	ret := i.getInt(DLNAPort)
-	if ret == 0 {
-		ret = DLNAPortDefault
-	}
-	return ret
-}
-
-// GetDLNAPortAsString returns the port to run the DLNA server on as a string.
-func (i *Config) GetDLNAPortAsString() string {
-	return ":" + strconv.Itoa(i.GetDLNAPort())
-}
-
-// GetDLNAActivityTrackingEnabled returns true if DLNA activity tracking is enabled.
-// This uses the same "trackActivity" UI setting that controls frontend play history tracking.
-// When enabled, scenes played via DLNA will have their play count and duration tracked.
-func (i *Config) GetDLNAActivityTrackingEnabled() bool {
-	uiConfig := i.GetUIConfiguration()
-	if uiConfig == nil {
-		return true // Default to enabled
-	}
-	if val, ok := uiConfig["trackActivity"]; ok {
-		if v, ok := val.(bool); ok {
-			return v
-		}
-	}
-	return true // Default to enabled
-}
-
-// GetVideoSortOrder returns the sort order to display videos. If
-// empty, videos will be sorted by titles.
-func (i *Config) GetVideoSortOrder() string {
-	ret := i.getString(DLNAVideoSortOrder)
-	if ret == "" {
-		ret = dlnaVideoSortOrderDefault
-	}
-
-	return ret
 }
 
 // GetLogFile returns the filename of the file to output logs to.

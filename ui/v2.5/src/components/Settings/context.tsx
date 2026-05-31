@@ -10,7 +10,6 @@ import * as GQL from "src/core/generated-graphql";
 import {
   useConfiguration,
   useConfigureDefaults,
-  useConfigureDLNA,
   useConfigureGeneral,
   useConfigureInterface,
   useConfigurePlugin,
@@ -31,7 +30,6 @@ export interface ISettingsContextState {
   interface: GQL.ConfigInterfaceInput;
   defaults: GQL.ConfigDefaultSettingsInput;
   scraping: GQL.ConfigScrapingInput;
-  dlna: GQL.ConfigDlnaInput;
   ui: IUIConfig;
   plugins: PluginConfigs;
 
@@ -44,7 +42,6 @@ export interface ISettingsContextState {
   saveInterface: (input: Partial<GQL.ConfigInterfaceInput>) => void;
   saveDefaults: (input: Partial<GQL.ConfigDefaultSettingsInput>) => void;
   saveScraping: (input: Partial<GQL.ConfigScrapingInput>) => void;
-  saveDLNA: (input: Partial<GQL.ConfigDlnaInput>) => void;
   saveUI: (input: Partial<IUIConfig>) => void;
   savePluginSettings: (pluginID: string, input: {}) => void;
   setAdvancedMode: (value: boolean) => void;
@@ -61,7 +58,6 @@ const emptyState: ISettingsContextState = {
   interface: {},
   defaults: {},
   scraping: {},
-  dlna: {},
   ui: {},
   plugins: {},
 
@@ -73,7 +69,6 @@ const emptyState: ISettingsContextState = {
   saveInterface: noop,
   saveDefaults: noop,
   saveScraping: noop,
-  saveDLNA: noop,
   saveUI: noop,
   savePluginSettings: noop,
   setAdvancedMode: noop,
@@ -130,10 +125,6 @@ export const SettingsContext: React.FC = ({ children }) => {
     useState<GQL.ConfigScrapingInput>();
   const [updateScrapingConfig] = useConfigureScraping();
 
-  const [dlna, setDLNA] = useState<GQL.ConfigDlnaInput>({});
-  const [pendingDLNA, setPendingDLNA] = useState<GQL.ConfigDlnaInput>();
-  const [updateDLNAConfig] = useConfigureDLNA();
-
   const [ui, setUI] = useState<IUIConfig>({});
   const [pendingUI, setPendingUI] = useState<{}>();
   const [updateUIConfig] = useConfigureUI();
@@ -161,7 +152,6 @@ export const SettingsContext: React.FC = ({ children }) => {
     setIface({ ...withoutTypename(data.configuration.interface) });
     setDefaults({ ...withoutTypename(data.configuration.defaults) });
     setScraping({ ...withoutTypename(data.configuration.scraping) });
-    setDLNA({ ...withoutTypename(data.configuration.dlna) });
     setUI(data.configuration.ui);
     setPlugins(data.configuration.plugins);
   }, [data, error]);
@@ -377,52 +367,6 @@ export const SettingsContext: React.FC = ({ children }) => {
     });
   }
 
-  // saves the configuration if no further changes are made after a half second
-  const saveDLNAConfig = useDebounce(async (input: GQL.ConfigDlnaInput) => {
-    try {
-      setUpdateSuccess(undefined);
-      await updateDLNAConfig({
-        variables: {
-          input,
-        },
-      });
-
-      setPendingDLNA(undefined);
-      onSuccess();
-    } catch (e) {
-      onError(e);
-    }
-  }, 500);
-
-  useEffect(() => {
-    if (!pendingDLNA) {
-      return;
-    }
-
-    saveDLNAConfig(pendingDLNA);
-  }, [pendingDLNA, saveDLNAConfig]);
-
-  function saveDLNA(input: Partial<GQL.ConfigDlnaInput>) {
-    if (!dlna) {
-      return;
-    }
-
-    setDLNA({
-      ...dlna,
-      ...input,
-    });
-
-    setPendingDLNA((current) => {
-      if (!current) {
-        return input;
-      }
-      return {
-        ...current,
-        ...input,
-      };
-    });
-  }
-
   type UIConfigInput = GQL.Scalars["Map"]["input"];
 
   // saves the configuration if no further changes are made after a half second
@@ -545,7 +489,6 @@ export const SettingsContext: React.FC = ({ children }) => {
       pendingInterface ||
       pendingDefaults ||
       pendingScraping ||
-      pendingDLNA ||
       pendingUI ||
       pendingPlugins
     ) {
@@ -577,7 +520,6 @@ export const SettingsContext: React.FC = ({ children }) => {
         interface: iface,
         defaults,
         scraping,
-        dlna,
         ui,
         plugins,
         advancedMode: ui.advancedMode ?? false,
@@ -585,7 +527,6 @@ export const SettingsContext: React.FC = ({ children }) => {
         saveInterface,
         saveDefaults,
         saveScraping,
-        saveDLNA,
         saveUI,
         refetch,
         savePluginSettings,

@@ -473,13 +473,13 @@ func (_m *TagReaderWriter) FindByStashID(ctx context.Context, stashID models.Sta
 	return r0, r1
 }
 
-// FindByStashIDStatus provides a mock function with given fields: ctx, hasStashID, stashboxEndpoint
-func (_m *TagReaderWriter) FindByStashIDStatus(ctx context.Context, hasStashID bool, stashboxEndpoint string) ([]*models.Tag, error) {
-	ret := _m.Called(ctx, hasStashID, stashboxEndpoint)
+// FindByStashIDStatus provides a mock function with given fields: ctx, hasStashID, remoteEndpoint
+func (_m *TagReaderWriter) FindByStashIDStatus(ctx context.Context, hasStashID bool, remoteEndpoint string) ([]*models.Tag, error) {
+	ret := _m.Called(ctx, hasStashID, remoteEndpoint)
 
 	var r0 []*models.Tag
 	if rf, ok := ret.Get(0).(func(context.Context, bool, string) []*models.Tag); ok {
-		r0 = rf(ctx, hasStashID, stashboxEndpoint)
+		r0 = rf(ctx, hasStashID, remoteEndpoint)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*models.Tag)
@@ -488,7 +488,7 @@ func (_m *TagReaderWriter) FindByStashIDStatus(ctx context.Context, hasStashID b
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, bool, string) error); ok {
-		r1 = rf(ctx, hasStashID, stashboxEndpoint)
+		r1 = rf(ctx, hasStashID, remoteEndpoint)
 	} else {
 		r1 = ret.Error(1)
 	}

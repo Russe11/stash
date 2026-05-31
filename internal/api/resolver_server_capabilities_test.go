@@ -40,7 +40,19 @@ func TestServerCapabilitiesResolver(t *testing.T) {
 	if !reflect.DeepEqual(caps.Features, build.NGFeatures()) {
 		t.Errorf("features = %v, want %v", caps.Features, build.NGFeatures())
 	}
+	if !slicesContain(caps.Features, "viewerPreferences") {
+		t.Errorf("features missing %q; got %v", "viewerPreferences", caps.Features)
+	}
 	if caps.DeletedSinceRetentionDays != config.DefaultDeletedSinceRetentionDays {
 		t.Errorf("deletedSinceRetentionDays = %d, want default %d", caps.DeletedSinceRetentionDays, config.DefaultDeletedSinceRetentionDays)
 	}
+}
+
+func slicesContain(values []string, needle string) bool {
+	for _, value := range values {
+		if value == needle {
+			return true
+		}
+	}
+	return false
 }

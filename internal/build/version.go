@@ -56,7 +56,7 @@ const NGAPIVersion = 1
 // NGFeatures lists the fork-only capabilities clients may rely on. Keep in
 // sync with the NG additions actually wired into the schema/resolvers.
 func NGFeatures() []string {
-	return []string{"deletedSince", "moveFolder", "folderCounts", "webhooks", "similarScenes", "entityChanged", "deviceBus"}
+	return []string{"deletedSince", "moveFolder", "folderCounts", "webhooks", "similarScenes", "entityChanged", "deviceBus", "viewerPreferences"}
 }
 
 func IsDevelop() bool {

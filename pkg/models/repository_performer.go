@@ -16,7 +16,7 @@ type PerformerFinder interface {
 	FindByImageID(ctx context.Context, imageID int) ([]*Performer, error)
 	FindByGalleryID(ctx context.Context, galleryID int) ([]*Performer, error)
 	FindByStashID(ctx context.Context, stashID StashID) ([]*Performer, error)
-	FindByStashIDStatus(ctx context.Context, hasStashID bool, stashboxEndpoint string) ([]*Performer, error)
+	FindByStashIDStatus(ctx context.Context, hasStashID bool, remoteEndpoint string) ([]*Performer, error)
 	FindByNames(ctx context.Context, names []string, nocase bool) ([]*Performer, error)
 }
 

@@ -4861,6 +4861,49 @@ func TestSceneStore_AddView(t *testing.T) {
 	}
 }
 
+func TestSceneStore_IncrementPlayCountDoesNotStoreViewDate(t *testing.T) {
+	withRollbackTxn(func(ctx context.Context) error {
+		qb := db.Scene
+		sceneID := sceneIDs[sceneIdx1WithPerformer]
+
+		currentCount, err := qb.CountViews(ctx, sceneID)
+		if err != nil {
+			t.Errorf("SceneStore.CountViews() error = %v", err)
+			return nil
+		}
+
+		currentHistory, err := qb.GetViewDates(ctx, sceneID)
+		if err != nil {
+			t.Errorf("SceneStore.GetViewDates() error = %v", err)
+			return nil
+		}
+
+		newCount, err := qb.IncrementPlayCount(ctx, sceneID)
+		if err != nil {
+			t.Errorf("SceneStore.IncrementPlayCount() error = %v", err)
+			return nil
+		}
+
+		newHistory, err := qb.GetViewDates(ctx, sceneID)
+		if err != nil {
+			t.Errorf("SceneStore.GetViewDates() error = %v", err)
+			return nil
+		}
+
+		storedCount, err := qb.CountViews(ctx, sceneID)
+		if err != nil {
+			t.Errorf("SceneStore.CountViews() error = %v", err)
+			return nil
+		}
+
+		assert.Equal(t, currentCount+1, newCount)
+		assert.Equal(t, currentCount+1, storedCount)
+		assert.Equal(t, currentHistory, newHistory)
+
+		return nil
+	})
+}
+
 func TestSceneStore_DecrementWatchCount(t *testing.T) {
 	return
 }

@@ -52,12 +52,6 @@ fragment ConfigGeneralData on ConfigGeneralResult {
   excludes
   imageExcludes
   customPerformerImageLocation
-  stashBoxes {
-    name
-    endpoint
-    api_key
-    max_requests_per_minute
-  }
   pythonPath
   transcodeInputArgs
   transcodeOutputArgs
@@ -120,15 +114,6 @@ fragment ConfigInterfaceData on ConfigInterfaceResult {
   useStashHostedFunscript
 }
 
-fragment ConfigDLNAData on ConfigDLNAResult {
-  serverName
-  enabled
-  port
-  whitelistedIPs
-  interfaces
-  videoSortOrder
-}
-
 fragment ConfigScrapingData on ConfigScrapingResult {
   scraperUserAgent
   scraperCertCheck
@@ -156,8 +141,6 @@ fragment IdentifyMetadataOptionsData on IdentifyMetadataOptions {
 }
 
 fragment ScraperSourceData on ScraperSource {
-  stash_box_index
-  stash_box_endpoint
   scraper_id
 }
 
@@ -225,9 +208,6 @@ fragment ConfigData on ConfigResult {
   }
   interface {
     ...ConfigInterfaceData
-  }
-  dlna {
-    ...ConfigDLNAData
   }
   scraping {
     ...ConfigScrapingData

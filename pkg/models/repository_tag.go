@@ -31,7 +31,7 @@ type TagFinder interface {
 	FindBySceneMarkerID(ctx context.Context, sceneMarkerID int) ([]*Tag, error)
 	FindByStudioID(ctx context.Context, studioID int) ([]*Tag, error)
 	FindByStashID(ctx context.Context, stashID StashID) ([]*Tag, error)
-	FindByStashIDStatus(ctx context.Context, hasStashID bool, stashboxEndpoint string) ([]*Tag, error)
+	FindByStashIDStatus(ctx context.Context, hasStashID bool, remoteEndpoint string) ([]*Tag, error)
 }
 
 // TagQueryer provides methods to query tags.

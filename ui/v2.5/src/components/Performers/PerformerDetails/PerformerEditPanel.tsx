@@ -15,8 +15,7 @@ import { ImageInput } from "src/components/Shared/ImageInput";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { CountrySelect } from "src/components/Shared/CountrySelect";
 import ImageUtils from "src/utils/image";
-import { addUpdateStashID, getStashIDs } from "src/utils/stashIds";
-import { stashboxDisplayName } from "src/utils/stashbox";
+import { getStashIDs } from "src/utils/stashIds";
 import { useToast } from "src/hooks/Toast";
 import { Prompt } from "react-router-dom";
 import { useFormik } from "formik";
@@ -30,13 +29,10 @@ import {
   stringCircumMap,
   stringToCircumcised,
 } from "src/utils/circumcised";
-import { useConfigurationContext } from "src/hooks/Config";
 import { PerformerScrapeDialog } from "./PerformerScrapeDialog";
 import PerformerScrapeModal from "./PerformerScrapeModal";
-import PerformerStashBoxModal, { IStashBox } from "./PerformerStashBoxModal";
-import StashBoxIDSearchModal from "src/components/Shared/StashBoxIDSearchModal";
 import cx from "classnames";
-import { faSyncAlt, faPlus } from "@fortawesome/free-solid-svg-icons";
+import { faSyncAlt } from "@fortawesome/free-solid-svg-icons";
 import isEqual from "lodash-es/isEqual";
 import { formikUtils } from "src/utils/form";
 import {
@@ -53,10 +49,6 @@ import {
   formatCustomFieldInput,
 } from "src/components/Shared/CustomFields";
 import cloneDeep from "lodash-es/cloneDeep";
-
-const isScraper = (
-  scraper: GQL.Scraper | GQL.StashBox
-): scraper is GQL.Scraper => (scraper as GQL.Scraper).id !== undefined;
 
 interface IPerformerDetails {
   performer: Partial<GQL.PerformerDataFragment>;
@@ -83,10 +75,8 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
   const isNew = performer.id === undefined;
 
   // Editing state
-  const [scraper, setScraper] = useState<GQL.Scraper | IStashBox>();
+  const [scraper, setScraper] = useState<GQL.Scraper>();
   const [isScraperModalOpen, setIsScraperModalOpen] = useState<boolean>(false);
-  const [isStashIDSearchOpen, setIsStashIDSearchOpen] =
-    useState<boolean>(false);
 
   // Network state
   const [isLoading, setIsLoading] = useState(false);
@@ -96,8 +86,6 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
 
   const [scrapedPerformer, setScrapedPerformer] =
     useState<GQL.ScrapedPerformer>();
-  const { configuration: stashConfig } = useConfigurationContext();
-
   const intl = useIntl();
 
   const schema = yup.object({
@@ -310,22 +298,6 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
       formik.setFieldValue("penis_length", state.penis_length);
     }
 
-    updateStashIDs(state.remote_site_id);
-  }
-
-  function updateStashIDs(remoteSiteID: string | null | undefined) {
-    if (remoteSiteID && (scraper as IStashBox).endpoint) {
-      const newIDs =
-        formik.values.stash_ids?.filter(
-          (s) => s.endpoint !== (scraper as IStashBox).endpoint
-        ) ?? [];
-      newIDs?.push({
-        endpoint: (scraper as IStashBox).endpoint,
-        stash_id: remoteSiteID,
-        updated_at: new Date().toISOString(),
-      });
-      formik.setFieldValue("stash_ids", newIDs);
-    }
   }
 
   const encodingImage = ImageUtils.usePasteImage(onImageLoad);
@@ -464,25 +436,7 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
     }
   }
 
-  async function onScrapeStashBox(performerResult: GQL.ScrapedPerformer) {
-    setIsScraperModalOpen(false);
-
-    const result: GQL.ScrapedPerformerDataFragment = {
-      ...performerResult,
-      images: performerResult.images ?? undefined,
-      __typename: "ScrapedPerformer",
-    };
-
-    // if this is a new performer, just dump the data
-    if (isNew) {
-      updatePerformerEditStateFromScraper(result);
-      setScraper(undefined);
-    } else {
-      setScrapedPerformer(result);
-    }
-  }
-
-  function onScraperSelected(s: GQL.Scraper | IStashBox | undefined) {
+  function onScraperSelected(s: GQL.Scraper | undefined) {
     setScraper(s);
     setIsScraperModalOpen(true);
   }
@@ -491,20 +445,8 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
     if (!performer) {
       return;
     }
-    const stashBoxes = stashConfig?.general.stashBoxes ?? [];
-
     const popover = (
       <Dropdown.Menu id="performer-scraper-popover">
-        {stashBoxes.map((s, index) => (
-          <Dropdown.Item
-            as={Button}
-            key={s.endpoint}
-            className="minimal"
-            onClick={() => onScraperSelected({ ...s, index })}
-          >
-            {stashboxDisplayName(s.name, index)}
-          </Dropdown.Item>
-        ))}
         {queryableScrapers
           ? queryableScrapers.map((s) => (
               <Dropdown.Item
@@ -582,14 +524,6 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
     setScraper(undefined);
   }
 
-  function onStashIDSelected(item?: GQL.StashIdInput) {
-    if (!item) return;
-    formik.setFieldValue(
-      "stash_ids",
-      addUpdateStashID(formik.values.stash_ids, item)
-    );
-  }
-
   function renderButtons(classNames: string) {
     return (
       <div className={cx("details-edit", "col-xl-9", classNames)}>
@@ -647,18 +581,11 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
   const renderScrapeModal = () => {
     if (!isScraperModalOpen) return;
 
-    return scraper !== undefined && isScraper(scraper) ? (
+    return scraper !== undefined ? (
       <PerformerScrapeModal
         scraper={scraper}
         onHide={() => setScraper(undefined)}
         onSelectPerformer={onScrapePerformer}
-        name={formik.values.name || ""}
-      />
-    ) : scraper !== undefined && !isScraper(scraper) ? (
-      <PerformerStashBoxModal
-        instance={scraper}
-        onHide={() => setScraper(undefined)}
-        onSelectPerformer={onScrapeStashBox}
         name={formik.values.name || ""}
       />
     ) : undefined;
@@ -696,21 +623,6 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
     <>
       {renderScrapeModal()}
       {maybeRenderScrapeDialog()}
-      {isStashIDSearchOpen && (
-        <StashBoxIDSearchModal
-          entityType="performer"
-          stashBoxes={stashConfig?.general.stashBoxes ?? []}
-          excludedStashBoxEndpoints={formik.values.stash_ids.map(
-            (s) => s.endpoint
-          )}
-          onSelectItem={(item) => {
-            onStashIDSelected(item);
-            setIsStashIDSearchOpen(false);
-          }}
-          initialQuery={performer.name ?? ""}
-        />
-      )}
-
       <Prompt
         when={formik.dirty}
         message={intl.formatMessage({ id: "dialogs.unsaved_changes" })}
@@ -758,15 +670,7 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
           "performers",
           "stash_ids",
           undefined,
-          <Button
-            variant="success"
-            className="mr-2 py-0"
-            onClick={() => setIsStashIDSearchOpen(true)}
-            disabled={!stashConfig?.general.stashBoxes?.length}
-            title={intl.formatMessage({ id: "actions.add_stash_id" })}
-          >
-            <Icon icon={faPlus} />
-          </Button>
+          undefined
         )}
 
         <hr />

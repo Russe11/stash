@@ -12,7 +12,6 @@ import {
 import { useFilteredItemList } from "../List/ItemList";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import { DisplayMode } from "src/models/list-filter/types";
-import { PerformerTagger } from "../Tagger/performers/PerformerTagger";
 import { ExportDialog } from "../Shared/ExportDialog";
 import { DeleteEntityDialog } from "../Shared/DeleteEntityDialog";
 import { IPerformerCardExtraCriteria } from "./PerformerCard";
@@ -232,10 +231,6 @@ const PerformerList: React.FC<{
         />
       );
     }
-    if (filter.displayMode === DisplayMode.Tagger) {
-      return <PerformerTagger performers={performers} />;
-    }
-
     return null;
   }
 );

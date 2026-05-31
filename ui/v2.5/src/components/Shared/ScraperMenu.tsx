@@ -2,8 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Dropdown, Button } from "react-bootstrap";
 import { useIntl } from "react-intl";
 import { Icon } from "./Icon";
-import { stashboxDisplayName } from "src/utils/stashbox";
-import { ScraperSourceInput, StashBox } from "src/core/generated-graphql";
+import { ScraperSourceInput } from "src/core/generated-graphql";
 import { faSyncAlt } from "@fortawesome/free-solid-svg-icons";
 import { ClearableInput } from "./ClearableInput";
 import useFocus from "src/utils/focus";
@@ -12,14 +11,12 @@ import ScreenUtils from "src/utils/screen";
 export const ScraperMenu: React.FC<{
   toggle: React.ReactNode;
   variant?: string;
-  stashBoxes?: StashBox[];
   scrapers: { id: string; name: string }[];
   onScraperClicked: (s: ScraperSourceInput) => void;
   onReloadScrapers: () => void;
 }> = ({
   toggle,
   variant,
-  stashBoxes,
   scrapers,
   onScraperClicked,
   onReloadScrapers,
@@ -30,15 +27,6 @@ export const ScraperMenu: React.FC<{
   const focusOnOpen = !ScreenUtils.isTouch();
   const focusRef = useFocus();
   const [, setFocus] = focusRef;
-
-  const filteredStashboxes = useMemo(() => {
-    if (!stashBoxes) return [];
-    if (!filter) return stashBoxes;
-
-    return stashBoxes.filter((s) =>
-      s.name.toLowerCase().includes(filter.toLowerCase())
-    );
-  }, [stashBoxes, filter]);
 
   const filteredScrapers = useMemo(() => {
     if (!filter) return scrapers;
@@ -76,23 +64,6 @@ export const ScraperMenu: React.FC<{
             <Icon icon={faSyncAlt} />
           </Button>
         </div>
-
-        {filteredStashboxes.map((s, index) => (
-          <Dropdown.Item
-            key={s.endpoint}
-            onClick={() =>
-              onScraperClicked({
-                stash_box_endpoint: s.endpoint,
-              })
-            }
-          >
-            {stashboxDisplayName(s.name, index)}
-          </Dropdown.Item>
-        ))}
-
-        {filteredStashboxes.length > 0 && filteredScrapers.length > 0 && (
-          <Dropdown.Divider />
-        )}
 
         {filteredScrapers.map((s) => (
           <Dropdown.Item

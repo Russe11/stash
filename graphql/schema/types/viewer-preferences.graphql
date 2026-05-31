@@ -1,0 +1,23 @@
+type ViewerPreferences {
+  stashTV: StashTVViewerPreferences!
+}
+
+type StashTVViewerPreferences {
+  home: StashTVHomePreferences!
+}
+
+type StashTVHomePreferences {
+  excludedTagIDs: [ID!]!
+}
+
+input ViewerPreferencesInput {
+  stashTV: StashTVViewerPreferencesInput
+}
+
+input StashTVViewerPreferencesInput {
+  home: StashTVHomePreferencesInput
+}
+
+input StashTVHomePreferencesInput {
+  excludedTagIDs: [ID!]
+}

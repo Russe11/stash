@@ -54,7 +54,6 @@ const sortByOptions = ["name", "random", "scenes_duration", "scenes_size"]
 const displayModeOptions = [
   DisplayMode.Grid,
   DisplayMode.List,
-  DisplayMode.Tagger,
 ];
 const criterionOptions = [
   FavoriteTagCriterionOption,

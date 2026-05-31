@@ -126,6 +126,7 @@ type OHistoryWriter interface {
 }
 
 type ViewHistoryWriter interface {
+	IncrementPlayCount(ctx context.Context, sceneID int) (int, error)
 	AddViews(ctx context.Context, sceneID int, dates []time.Time) ([]time.Time, error)
 	DeleteViews(ctx context.Context, id int, dates []time.Time) ([]time.Time, error)
 	DeleteAllViews(ctx context.Context, id int) (int, error)
