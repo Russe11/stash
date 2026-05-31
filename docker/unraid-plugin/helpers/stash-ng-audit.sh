@@ -61,7 +61,18 @@ collect_host_containers() {
   if [ -n "$fixture" ]; then
     return 0
   fi
-  docker ps --format '{{.Names}}\t{{.Image}}\t{{.Ports}}\t\t\t' > "$out"
+
+  names_file="$out.names"
+  docker ps --format '{{.Names}}' > "$names_file"
+  : > "$out"
+
+  while IFS= read -r container_name; do
+    [ -n "$container_name" ] || continue
+    inspect_line="$(docker inspect --format '{{.Name}}{{"\t"}}{{.Config.Image}}{{"\t"}}{{range $port, $bindings := .NetworkSettings.Ports}}{{if $bindings}}{{(index $bindings 0).HostIp}}:{{(index $bindings 0).HostPort}}->{{$port}} {{end}}{{end}}{{"\t"}}{{range .Mounts}}{{if eq .Destination "/root/.stash"}}{{.Source}}{{end}}{{end}}{{"\t"}}{{range .Mounts}}{{.Destination}}:{{.Source}}:{{.Mode}},{{end}}' "$container_name")"
+    printf '%s\n' "$inspect_line" |
+      awk -F '\t' 'BEGIN { OFS="\t" } { sub(/^\//, "", $1); print $1, $2, $3, $4, $5 }' >> "$out"
+  done < "$names_file"
+  rm -f "$names_file"
 }
 
 emit_container_findings() {

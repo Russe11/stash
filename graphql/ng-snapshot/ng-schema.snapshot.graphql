@@ -1324,11 +1324,11 @@ type DeviceCommandEvent {
 	seekSeconds: Float
 }
 """
-A command from a controller to a target device, relayed by the server. IDs only — no titles.
+A command from a registered online CONTROL device to a registered online PLAY target. IDs only — no titles.
 """
 input DeviceCommandInput {
 	"""
-	The controller sending the command (its own registered device id). The server stamps this onto the relayed DeviceCommandEvent.fromDeviceId so the target can TOFU-confirm per controller.
+	The controller sending the command (its own registered online CONTROL device id). The server stamps this onto the relayed DeviceCommandEvent.fromDeviceId so the target can TOFU-confirm per controller.
 	"""
 	fromDeviceId: ID!
 	targetDeviceId: ID!
@@ -3335,8 +3335,10 @@ type Mutation {
 	updatePlaybackState(input: PlaybackStateInput!): Boolean!
 	"""
 	NG-only (deviceBus). Relays a command from a controller to the target device's command stream
-	(the subscriber whose deviceCommands(deviceId:) == targetDeviceId). Returns true if a live target
-	subscriber received it. Ephemeral — the command is fanned out, never persisted.
+	(the subscriber whose deviceCommands(deviceId:) == targetDeviceId). The controller must be an
+	online registered CONTROL device, the target must be an online registered PLAY device, and command
+	payloads are shape/size-bounded. Returns true if a live target subscriber received it. Ephemeral
+	— the command is fanned out, never persisted.
 	"""
 	sendDeviceCommand(input: DeviceCommandInput!): Boolean!
 }
@@ -5368,15 +5370,14 @@ type ScraperSpec {
 	supported_scrapes: [ScrapeType!]!
 }
 """
-ServerCapabilities lets clients detect the Stash NG fork and which fork-only
-features it supports BEFORE invoking them. Original upstream Stash does not
-define the serverCapabilities query, so a "Cannot query field" GraphQL error
-is the negative signal: clients should treat that error as edition = upstream
-and gate all NG-only behaviour off.
+ServerCapabilities is the authenticated NG-to-NG capability handshake. Clients
+use edition/apiVersion/features to decide which NG surfaces to call; an
+unreachable query or absent feature is a version-skew/probe-failure signal, not
+an upstream fallback path.
 """
 type ServerCapabilities {
 	"""
-	Build variant. "ng" for this fork; original upstream has no such field.
+	Build variant. "ng" is the only supported Stash NG edition.
 	"""
 	edition: String!
 	"""
@@ -5854,8 +5855,9 @@ type Subscription {
 	devicePresence: DevicePresenceEvent!
 	"""
 	NG-only (deviceBus). A target device subscribes here with its own deviceId to receive only the
-	commands addressed to it (sendDeviceCommand whose targetDeviceId == deviceId). Ephemeral fan-out;
-	the stream tears down on disconnect. Gate consumption on features containing "deviceBus".
+	commands addressed to it (sendDeviceCommand whose targetDeviceId == deviceId). The deviceId input
+	is bounded before a subscriber is registered. Ephemeral fan-out; the stream tears down on
+	disconnect. Gate consumption on features containing "deviceBus".
 	"""
 	deviceCommands(deviceId: ID!): DeviceCommandEvent!
 }

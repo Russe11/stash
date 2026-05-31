@@ -668,8 +668,10 @@ type Mutation {
 
   """
   NG-only (deviceBus). Relays a command from a controller to the target device's command stream
-  (the subscriber whose deviceCommands(deviceId:) == targetDeviceId). Returns true if a live target
-  subscriber received it. Ephemeral — the command is fanned out, never persisted.
+  (the subscriber whose deviceCommands(deviceId:) == targetDeviceId). The controller must be an
+  online registered CONTROL device, the target must be an online registered PLAY device, and command
+  payloads are shape/size-bounded. Returns true if a live target subscriber received it. Ephemeral
+  — the command is fanned out, never persisted.
   """
   sendDeviceCommand(input: DeviceCommandInput!): Boolean!
 }
@@ -701,8 +703,9 @@ type Subscription {
 
   """
   NG-only (deviceBus). A target device subscribes here with its own deviceId to receive only the
-  commands addressed to it (sendDeviceCommand whose targetDeviceId == deviceId). Ephemeral fan-out;
-  the stream tears down on disconnect. Gate consumption on features containing "deviceBus".
+  commands addressed to it (sendDeviceCommand whose targetDeviceId == deviceId). The deviceId input
+  is bounded before a subscriber is registered. Ephemeral fan-out; the stream tears down on
+  disconnect. Gate consumption on features containing "deviceBus".
   """
   deviceCommands(deviceId: ID!): DeviceCommandEvent!
 }

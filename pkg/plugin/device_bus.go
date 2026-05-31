@@ -352,6 +352,32 @@ func (r *DeviceRegistry) Online() []DeviceRecord {
 	return out
 }
 
+// OnlineDevice returns a cloned record when deviceID exists and is within the TTL.
+func (r *DeviceRegistry) OnlineDevice(deviceID string) (DeviceRecord, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	rec, ok := r.devices[deviceID]
+	if !ok || r.isStaleLocked(rec, r.now()) {
+		return DeviceRecord{}, false
+	}
+	return rec.clone(), true
+}
+
+// Has reports whether deviceID is present in the registry, regardless of TTL.
+func (r *DeviceRegistry) Has(deviceID string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	_, ok := r.devices[deviceID]
+	return ok
+}
+
+// Size reports the number of stored registry records, including stale entries awaiting sweep.
+func (r *DeviceRegistry) Size() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.devices)
+}
+
 // IsOnline reports whether a device exists and is within the TTL (used by the resolver to set the
 // Device.online flag consistently with Online()).
 func (r *DeviceRegistry) IsOnline(deviceID string) bool {

@@ -1,7 +1,7 @@
 ---
 name: tests
 description: Test coverage gaps in the Stash NG server fork
-updated: 2026-05-30
+updated: 2026-05-31
 ---
 
 # Tests
@@ -12,8 +12,6 @@ Test coverage gaps noticed in passing: missing tests for specific branches, weak
 ### YYYY-MM-DD — <short title>
 <one paragraph: what to verify + where the test belongs + run vs NG/upstream>
 -->
-
-(no open entries)
 
 ### 2026-05-30 — MoveFiles DestinationBasename (rename-on-move) branch still uncovered (manager-coupled)
 The MoveFiles file-move filesystem path is now covered end-to-end: `internal/api/resolver_mutation_movefiles_integration_test.go`
@@ -28,4 +26,3 @@ covering it needs either a manager bootstrap in the test or a new extension-list
 `r.stashPaths`, wired from `mgr.Config` in `server.go Initialize()`, production behaviour byte-identical). The zip branch needs
 zip-file rows seeded. Both are lower value than the primary file-move path now covered; do the extension seam first since it
 also unblocks unit-testing `validateFileExtension` directly.
-

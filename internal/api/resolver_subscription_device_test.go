@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -153,6 +155,8 @@ func TestDeviceCommandsTargetFiltering(t *testing.T) {
 	}
 
 	mut := &mutationResolver{}
+	registerTestDevice(t, ctxA, mut, "ctrl-1", "Controller", DeviceKindDesktop, DeviceCapabilityControl)
+	registerTestDevice(t, ctxA, mut, "dev-A", "Living Room TV", DeviceKindTv, DeviceCapabilityPlay)
 	scene := "scene-9"
 	start := 12.5
 	delivered, err := mut.SendDeviceCommand(ctxA, DeviceCommandInput{
@@ -191,6 +195,7 @@ func TestSendDeviceCommandNoTargetReturnsFalse(t *testing.T) {
 	isolateDeviceBus(t)
 
 	mut := &mutationResolver{}
+	registerTestDevice(t, context.Background(), mut, "ctrl-1", "Controller", DeviceKindDesktop, DeviceCapabilityControl)
 	delivered, err := mut.SendDeviceCommand(context.Background(), DeviceCommandInput{
 		FromDeviceID:   "ctrl-1",
 		TargetDeviceID: "nobody",
@@ -221,6 +226,8 @@ func TestSendDeviceCommandStampsFromDeviceId(t *testing.T) {
 	}
 
 	mut := &mutationResolver{}
+	registerTestDevice(t, ctx, mut, "mac-controller", "Mac", DeviceKindDesktop, DeviceCapabilityControl)
+	registerTestDevice(t, ctx, mut, "tv-living-room", "Living Room TV", DeviceKindTv, DeviceCapabilityPlay)
 	delivered, err := mut.SendDeviceCommand(ctx, DeviceCommandInput{
 		FromDeviceID:   "mac-controller",
 		TargetDeviceID: "tv-living-room",
@@ -276,6 +283,222 @@ func TestSendDeviceCommandRejectsEmptyFromDeviceId(t *testing.T) {
 		t.Errorf("target wrongly received %+v for an empty-fromDeviceId command", e)
 	case <-time.After(100 * time.Millisecond):
 	}
+}
+
+// TestSendDeviceCommandRequiresOnlineCapableDevices: cross-device commands must come from a
+// registered online controller with CONTROL and target a registered online device with PLAY. A
+// subscriber alone is not enough proof that the target opted in.
+func TestSendDeviceCommandRequiresOnlineCapableDevices(t *testing.T) {
+	tests := []struct {
+		name       string
+		register   func(t *testing.T, ctx context.Context, mut *mutationResolver)
+		fromID     string
+		targetID   string
+		targetSub  string
+		wantReason string
+	}{
+		{
+			name: "unknown controller",
+			register: func(t *testing.T, ctx context.Context, mut *mutationResolver) {
+				registerTestDevice(t, ctx, mut, "tv", "TV", DeviceKindTv, DeviceCapabilityPlay)
+			},
+			fromID:     "ghost-controller",
+			targetID:   "tv",
+			targetSub:  "tv",
+			wantReason: "must reject spoofed fromDeviceId",
+		},
+		{
+			name: "controller without CONTROL",
+			register: func(t *testing.T, ctx context.Context, mut *mutationResolver) {
+				registerTestDevice(t, ctx, mut, "viewer", "Viewer", DeviceKindMobile, DeviceCapabilityPlay)
+				registerTestDevice(t, ctx, mut, "tv", "TV", DeviceKindTv, DeviceCapabilityPlay)
+			},
+			fromID:     "viewer",
+			targetID:   "tv",
+			targetSub:  "tv",
+			wantReason: "must require CONTROL capability",
+		},
+		{
+			name: "unknown target",
+			register: func(t *testing.T, ctx context.Context, mut *mutationResolver) {
+				registerTestDevice(t, ctx, mut, "controller", "Controller", DeviceKindDesktop, DeviceCapabilityControl)
+			},
+			fromID:     "controller",
+			targetID:   "ghost-tv",
+			targetSub:  "ghost-tv",
+			wantReason: "must require target registration",
+		},
+		{
+			name: "target without PLAY",
+			register: func(t *testing.T, ctx context.Context, mut *mutationResolver) {
+				registerTestDevice(t, ctx, mut, "controller", "Controller", DeviceKindDesktop, DeviceCapabilityControl)
+				registerTestDevice(t, ctx, mut, "remote", "Remote", DeviceKindMobile, DeviceCapabilityControl)
+			},
+			fromID:     "controller",
+			targetID:   "remote",
+			targetSub:  "remote",
+			wantReason: "must require PLAY capability",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			isolateDeviceBus(t)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			mut := &mutationResolver{}
+			tt.register(t, ctx, mut)
+
+			sub := &subscriptionResolver{}
+			out, err := sub.DeviceCommands(ctx, tt.targetSub)
+			if err != nil {
+				t.Fatalf("DeviceCommands error: %v", err)
+			}
+
+			scene := "scene-1"
+			delivered, err := mut.SendDeviceCommand(ctx, DeviceCommandInput{
+				FromDeviceID:   tt.fromID,
+				TargetDeviceID: tt.targetID,
+				Type:           DeviceCommandTypePlay,
+				SceneID:        &scene,
+			})
+			if err != nil {
+				t.Fatalf("SendDeviceCommand error: %v", err)
+			}
+			if delivered {
+				t.Fatalf("SendDeviceCommand delivered=true, want false: %s", tt.wantReason)
+			}
+
+			select {
+			case e := <-out:
+				t.Fatalf("target wrongly received %+v: %s", e, tt.wantReason)
+			case <-time.After(100 * time.Millisecond):
+			}
+		})
+	}
+}
+
+func TestDeviceBusRejectsOversizedInputs(t *testing.T) {
+	isolateDeviceBus(t)
+
+	ctx := context.Background()
+	mut := &mutationResolver{}
+
+	longID := strings.Repeat("d", 129)
+	if _, err := mut.RegisterDevice(ctx, DeviceInput{ID: longID, Name: "TV", Kind: DeviceKindTv}); err == nil {
+		t.Fatal("RegisterDevice accepted an overlong id")
+	}
+	longName := strings.Repeat("n", 129)
+	if _, err := mut.RegisterDevice(ctx, DeviceInput{ID: "tv-long-name", Name: longName, Kind: DeviceKindTv}); err == nil {
+		t.Fatal("RegisterDevice accepted an overlong name")
+	}
+
+	registerTestDevice(t, ctx, mut, "controller", "Controller", DeviceKindDesktop, DeviceCapabilityControl)
+	registerTestDevice(t, ctx, mut, "tv", "TV", DeviceKindTv, DeviceCapabilityPlay)
+
+	sceneIDs := make([]string, 257)
+	for i := range sceneIDs {
+		sceneIDs[i] = "scene-1"
+	}
+	delivered, err := mut.SendDeviceCommand(ctx, DeviceCommandInput{
+		FromDeviceID:   "controller",
+		TargetDeviceID: "tv",
+		Type:           DeviceCommandTypeEnqueue,
+		SceneIds:       sceneIDs,
+	})
+	if err == nil {
+		t.Fatal("SendDeviceCommand accepted an oversized sceneIds payload")
+	}
+	if delivered {
+		t.Fatal("SendDeviceCommand delivered an oversized sceneIds payload")
+	}
+}
+
+func TestRegisterDeviceRejectsRegistryOverflow(t *testing.T) {
+	isolateDeviceBus(t)
+
+	ctx := context.Background()
+	mut := &mutationResolver{}
+	for i := 0; i < 128; i++ {
+		registerTestDevice(t, ctx, mut, fmt.Sprintf("dev-%03d", i), "Device", DeviceKindOther)
+	}
+
+	if _, err := mut.RegisterDevice(ctx, DeviceInput{ID: "dev-overflow", Name: "Overflow", Kind: DeviceKindOther}); err == nil {
+		t.Fatal("RegisterDevice accepted a new device after the registry cap")
+	}
+	if _, err := mut.RegisterDevice(ctx, DeviceInput{ID: "dev-000", Name: "Updated Device", Kind: DeviceKindOther}); err != nil {
+		t.Fatalf("RegisterDevice rejected heartbeat/update for an existing device at the cap: %v", err)
+	}
+}
+
+func TestSendDeviceCommandValidatesCommandShape(t *testing.T) {
+	tests := []struct {
+		name  string
+		input DeviceCommandInput
+	}{
+		{
+			name: "PLAY requires sceneId",
+			input: DeviceCommandInput{
+				Type: DeviceCommandTypePlay,
+			},
+		},
+		{
+			name: "SEEK requires seekSeconds",
+			input: DeviceCommandInput{
+				Type: DeviceCommandTypeSeek,
+			},
+		},
+		{
+			name: "PAUSE rejects scene payload",
+			input: DeviceCommandInput{
+				Type:    DeviceCommandTypePause,
+				SceneID: stringPtr("scene-1"),
+			},
+		},
+		{
+			name: "negative seek rejected",
+			input: DeviceCommandInput{
+				Type:        DeviceCommandTypeSeek,
+				SeekSeconds: floatPtr(-1),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			isolateDeviceBus(t)
+			ctx := context.Background()
+			mut := &mutationResolver{}
+			registerTestDevice(t, ctx, mut, "controller", "Controller", DeviceKindDesktop, DeviceCapabilityControl)
+			registerTestDevice(t, ctx, mut, "tv", "TV", DeviceKindTv, DeviceCapabilityPlay)
+
+			tt.input.FromDeviceID = "controller"
+			tt.input.TargetDeviceID = "tv"
+			delivered, err := mut.SendDeviceCommand(ctx, tt.input)
+			if err == nil {
+				t.Fatal("SendDeviceCommand accepted invalid command shape")
+			}
+			if delivered {
+				t.Fatal("SendDeviceCommand delivered invalid command shape")
+			}
+		})
+	}
+}
+
+func registerTestDevice(t *testing.T, ctx context.Context, mut *mutationResolver, id, name string, kind DeviceKind, caps ...DeviceCapability) {
+	t.Helper()
+	if _, err := mut.RegisterDevice(ctx, DeviceInput{ID: id, Name: name, Kind: kind, Capabilities: caps}); err != nil {
+		t.Fatalf("RegisterDevice(%s) error: %v", id, err)
+	}
+}
+
+func stringPtr(s string) *string {
+	return &s
+}
+
+func floatPtr(f float64) *float64 {
+	return &f
 }
 
 // TestDevicePresenceCleanupOnCancel: cancelling the subscription context closes the output channel
@@ -352,6 +575,21 @@ func TestDeviceCommandsCleanupOnCancel(t *testing.T) {
 	}
 }
 
+func TestDeviceCommandsRejectsOversizedDeviceID(t *testing.T) {
+	isolateDeviceBus(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sub := &subscriptionResolver{}
+	if _, err := sub.DeviceCommands(ctx, strings.Repeat("d", 129)); err == nil {
+		t.Fatal("DeviceCommands accepted an overlong deviceId")
+	}
+	if got := plugin.DeviceCommands.SubscriberCountForTest(); got != 0 {
+		t.Fatalf("command subscribers = %d, want 0 after rejected deviceId", got)
+	}
+}
+
 // TestDevicesQueryReturnsOnline: the devices query returns the online devices mapped to GraphQL.
 func TestDevicesQueryReturnsOnline(t *testing.T) {
 	isolateDeviceBus(t)
@@ -406,7 +644,10 @@ func TestDeviceBusIsEphemeral_NoSQLite(t *testing.T) {
 	}
 
 	// Full mutation surface with no DB available.
-	if _, err := mut.RegisterDevice(ctx, DeviceInput{ID: "dev-1", Name: "TV", Kind: DeviceKindTv}); err != nil {
+	if _, err := mut.RegisterDevice(ctx, DeviceInput{ID: "dev-1", Name: "TV", Kind: DeviceKindTv, Capabilities: []DeviceCapability{DeviceCapabilityPlay}}); err != nil {
+		t.Fatalf("RegisterDevice persisted/failed: %v", err)
+	}
+	if _, err := mut.RegisterDevice(ctx, DeviceInput{ID: "ctrl-1", Name: "Controller", Kind: DeviceKindDesktop, Capabilities: []DeviceCapability{DeviceCapabilityControl}}); err != nil {
 		t.Fatalf("RegisterDevice persisted/failed: %v", err)
 	}
 	scene := "scene-1"

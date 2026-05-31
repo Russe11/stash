@@ -6,8 +6,9 @@ import (
 )
 
 // TestEdition pins the NG edition stamp. Clients gate all fork-only behaviour on this exact value
-// (a missing serverCapabilities query / a non-"ng" edition is treated as upstream and NG features
-// are disabled), so changing it is a breaking contract change and must be deliberate.
+// (a missing serverCapabilities query / a non-"ng" edition is treated as NG version skew or a probe
+// failure and NG features are disabled), so changing it is a breaking contract change and must be
+// deliberate.
 func TestEdition(t *testing.T) {
 	if Edition != "ng" {
 		t.Errorf("Edition = %q, want %q", Edition, "ng")

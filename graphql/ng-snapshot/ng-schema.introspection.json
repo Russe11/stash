@@ -2183,7 +2183,7 @@
     {
       "kind": "INPUT_OBJECT",
       "name": "DeviceCommandInput",
-      "description": "A command from a controller to a target device, relayed by the server. IDs only — no titles.",
+      "description": "A command from a registered online CONTROL device to a registered online PLAY target. IDs only — no titles.",
       "inputFields": [
         {
           "name": "fromDeviceId",
@@ -11565,7 +11565,7 @@
     {
       "kind": "OBJECT",
       "name": "ServerCapabilities",
-      "description": "ServerCapabilities lets clients detect the Stash NG fork and which fork-only\nfeatures it supports BEFORE invoking them. Original upstream Stash does not\ndefine the serverCapabilities query, so a \"Cannot query field\" GraphQL error\nis the negative signal: clients should treat that error as edition = upstream\nand gate all NG-only behaviour off.",
+      "description": "ServerCapabilities is the authenticated NG-to-NG capability handshake. Clients\nuse edition/apiVersion/features to decide which NG surfaces to call; an\nunreachable query or absent feature is a version-skew/probe-failure signal, not\nan upstream fallback path.",
       "fields": [
         {
           "name": "edition",

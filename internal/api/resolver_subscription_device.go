@@ -77,6 +77,9 @@ func (r *subscriptionResolver) DevicePresence(ctx context.Context) (<-chan *Devi
 // targetDeviceId == deviceId) to the target. It registers on the process-wide command broadcaster,
 // discards commands not addressed to this device, and tears down on context cancellation.
 func (r *subscriptionResolver) DeviceCommands(ctx context.Context, deviceID string) (<-chan *DeviceCommandEvent, error) {
+	if err := validateDeviceID("deviceId", deviceID); err != nil {
+		return nil, err
+	}
 	source, unsubscribe := plugin.DeviceCommands.Subscribe(deviceID)
 	out := make(chan *DeviceCommandEvent, 1)
 

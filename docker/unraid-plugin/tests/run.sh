@@ -55,6 +55,54 @@ redacted="$("$AUDIT" --fixture "$ROOT/tests/fixtures/conflict" --redacted)"
 assert_contains "$redacted" '/mnt/<redacted>/appdata/stash-ng'
 assert_not_contains "$redacted" '/mnt/cache/appdata/stash-ng'
 
+fake_docker_dir="$ROOT/tests/tmp-fake-docker"
+mkdir -p "$fake_docker_dir"
+cat > "$fake_docker_dir/docker" <<'EOF'
+#!/bin/sh
+set -eu
+
+case "$1" in
+  ps)
+    printf 'stash-ng\n'
+    printf 'stash-old\n'
+    ;;
+  inspect)
+    shift
+    for name in "$@"; do
+      case "$name" in
+        stash-ng)
+          printf '%s\t%s\t%s\t%s\t%s\n' \
+            'stash-ng' \
+            'stash-ng:latest' \
+            '0.0.0.0:9998->9999/tcp' \
+            '/mnt/cache/appdata/stash-ng' \
+            '/root/.stash:/mnt/cache/appdata/stash-ng:rw,/generated:/mnt/cache/appdata/stash-ng/generated:rw,/cache:/mnt/cache/appdata/stash-ng/cache:rw'
+          ;;
+        stash-old)
+          printf '%s\t%s\t%s\t%s\t%s\n' \
+            'stash-old' \
+            'stashapp/stash:latest' \
+            '0.0.0.0:9999->9999/tcp' \
+            '/mnt/cache/appdata/stash-ng' \
+            '/root/.stash:/mnt/cache/appdata/stash-ng:rw'
+          ;;
+      esac
+    done
+    ;;
+  *)
+    printf 'unexpected docker command: %s\n' "$1" >&2
+    exit 64
+    ;;
+esac
+EOF
+chmod +x "$fake_docker_dir/docker"
+host_report="$(PATH="$fake_docker_dir:$PATH" "$AUDIT")"
+assert_contains "$host_report" '"mode":"host"'
+assert_contains "$host_report" '"id":"container.appdata.conflict"'
+assert_contains "$host_report" '"severity":"Blocking"'
+assert_not_contains "$host_report" '"id":"template.generated_mount.missing"'
+rm -rf "$fake_docker_dir"
+
 backup_root="$ROOT/tests/tmp-backups"
 rm -rf "$backup_root"
 backup_report="$("$ROOT/helpers/stash-ng-backup.sh" --appdata "$ROOT/tests/fixtures/backup/appdata" --destination "$backup_root")"
@@ -83,5 +131,6 @@ printf 'PASS: template drift findings\n'
 printf 'PASS: share policy findings\n'
 printf 'PASS: server-aware identity findings\n'
 printf 'PASS: redacted audit export\n'
+printf 'PASS: host docker inspect collection\n'
 printf 'PASS: critical appdata backup\n'
 printf 'PASS: unraid page fixed-helper wiring\n'

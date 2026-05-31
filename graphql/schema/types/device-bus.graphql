@@ -82,9 +82,9 @@ enum DeviceCommandType {
   PREV
 }
 
-"A command from a controller to a target device, relayed by the server. IDs only — no titles."
+"A command from a registered online CONTROL device to a registered online PLAY target. IDs only — no titles."
 input DeviceCommandInput {
-  "The controller sending the command (its own registered device id). The server stamps this onto the relayed DeviceCommandEvent.fromDeviceId so the target can TOFU-confirm per controller."
+  "The controller sending the command (its own registered online CONTROL device id). The server stamps this onto the relayed DeviceCommandEvent.fromDeviceId so the target can TOFU-confirm per controller."
   fromDeviceId: ID!
   targetDeviceId: ID!
   type: DeviceCommandType!
