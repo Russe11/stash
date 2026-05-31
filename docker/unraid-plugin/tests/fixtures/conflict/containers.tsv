@@ -1,0 +1,2 @@
+stash-ng	stash-ng:latest	9998	/mnt/cache/appdata/stash-ng	/root/.stash	rw
+stash-stock	stashapp/stash:latest	9999	/mnt/cache/appdata/stash-ng	/root/.stash	rw
