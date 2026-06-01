@@ -6,13 +6,13 @@ import (
 )
 
 func TestBuildHLSMasterPlaylistHasBothVariants(t *testing.T) {
-	pl := string(buildHLSMasterPlaylist(1920, 1080, 8_000_000, 160, false,
+	pl := string(buildHLSMasterPlaylist(1920, 1080, 8_000_000, true, 160, false,
 		"stream.m3u8?type=media&resolution=720", "trickplay.m3u8"))
 
 	for _, want := range []string{
 		"#EXTM3U",
 		"#EXT-X-VERSION:7",
-		"#EXT-X-STREAM-INF:BANDWIDTH=8000000,RESOLUTION=1920x1080",
+		`#EXT-X-STREAM-INF:BANDWIDTH=8000000,CODECS="avc1.640034,mp4a.40.2",RESOLUTION=1920x1080`,
 		"stream.m3u8?type=media&resolution=720",
 		"#EXT-X-I-FRAME-STREAM-INF:",
 		`CODECS="avc1.42E01E"`,
@@ -24,9 +24,16 @@ func TestBuildHLSMasterPlaylistHasBothVariants(t *testing.T) {
 	}
 }
 
+func TestBuildHLSMasterPlaylistAudiolessOmitsAACCodec(t *testing.T) {
+	pl := string(buildHLSMasterPlaylist(1920, 1080, 8_000_000, false, 160, false, "stream.m3u8?type=media", "trickplay.m3u8"))
+	if !strings.Contains(pl, `CODECS="avc1.640034"`) || strings.Contains(pl, "mp4a") {
+		t.Errorf("audioless main variant should declare video-only CODECS:\n%s", pl)
+	}
+}
+
 func TestBuildHLSMasterPlaylistToleratesMissingDimensions(t *testing.T) {
 	// Unknown width/height/bitrate must not emit a broken RESOLUTION and must still carry both variants.
-	pl := string(buildHLSMasterPlaylist(0, 0, 0, 160, false, "stream.m3u8?type=media", "trickplay.m3u8"))
+	pl := string(buildHLSMasterPlaylist(0, 0, 0, true, 160, false, "stream.m3u8?type=media", "trickplay.m3u8"))
 	if strings.Contains(pl, "RESOLUTION=") {
 		t.Errorf("did not expect RESOLUTION with unknown dimensions:\n%s", pl)
 	}

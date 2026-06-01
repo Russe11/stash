@@ -219,7 +219,7 @@ func (rs sceneRoutes) serveHLSMasterIfTrickplay(w http.ResponseWriter, r *http.R
 		iframeVariantURI += "?apikey=" + url.QueryEscape(apikey)
 	}
 
-	pl := buildHLSMasterPlaylist(f.Width, f.Height, f.BitRate, manager.DefaultTrickplaySize, f.Height > f.Width, mediaVariantURI, iframeVariantURI)
+	pl := buildHLSMasterPlaylist(f.Width, f.Height, f.BitRate, f.AudioCodec != "", manager.DefaultTrickplaySize, f.Height > f.Width, mediaVariantURI, iframeVariantURI)
 
 	w.Header().Set("Content-Type", ffmpeg.MimeHLS)
 	utils.ServeStaticContent(w, r, pl)
@@ -263,9 +263,17 @@ func (rs sceneRoutes) TrickplayMedia(w http.ResponseWriter, r *http.Request) {
 // pinned H.264 baseline@3.0 encode.
 const trickplayCodec = "avc1.42E01E"
 
+// mainVideoCodec / aacAudioCodec declare the main variant's formats. H.264 High@5.2 is an intentional
+// over-declaration (covers up to 4K so we never under-declare the live transcode's actual level); AAC-LC
+// matches the transcode's `-c:a aac` output.
+const (
+	mainVideoCodec = "avc1.640034"
+	aacAudioCodec  = "mp4a.40.2"
+)
+
 // buildHLSMasterPlaylist builds an HLS master playlist with the scene's main (live-transcoded) variant
 // plus a pre-generated I-frame variant for trick-play. Pure value→value so it's unit-testable.
-func buildHLSMasterPlaylist(width, height int, bitrate int64, trickSize int, isPortrait bool, mediaVariantURI, iframeVariantURI string) []byte {
+func buildHLSMasterPlaylist(width, height int, bitrate int64, hasAudio bool, trickSize int, isPortrait bool, mediaVariantURI, iframeVariantURI string) []byte {
 	if bitrate <= 0 {
 		bitrate = 4000000
 	}
@@ -275,7 +283,15 @@ func buildHLSMasterPlaylist(width, height int, bitrate int64, trickSize int, isP
 	buf.WriteString("#EXT-X-VERSION:7\n")
 	buf.WriteString("#EXT-X-INDEPENDENT-SEGMENTS\n")
 
-	streamInf := "#EXT-X-STREAM-INF:BANDWIDTH=" + strconv.FormatInt(bitrate, 10)
+	// CODECS on the MAIN variant is required for AVPlayer to select the I-frame track for scrub
+	// thumbnails (without it the player fetches the I-frames but won't display them). The live transcode
+	// emits H.264 + AAC-LC; we over-declare High@5.2 (covers up to 4K — a decoder-capability ceiling, so
+	// it never under-declares an actual stream) and add AAC only when the scene has an audio track.
+	mainCodecs := mainVideoCodec
+	if hasAudio {
+		mainCodecs += "," + aacAudioCodec
+	}
+	streamInf := "#EXT-X-STREAM-INF:BANDWIDTH=" + strconv.FormatInt(bitrate, 10) + `,CODECS="` + mainCodecs + `"`
 	if width > 0 && height > 0 {
 		streamInf += ",RESOLUTION=" + strconv.Itoa(width) + "x" + strconv.Itoa(height)
 	}
