@@ -15,6 +15,7 @@ func TestBuildHLSMasterPlaylistHasBothVariants(t *testing.T) {
 		"#EXT-X-STREAM-INF:BANDWIDTH=8000000,RESOLUTION=1920x1080",
 		"stream.m3u8?type=media&resolution=720",
 		"#EXT-X-I-FRAME-STREAM-INF:",
+		`CODECS="avc1.42E01E"`,
 		`URI="trickplay.m3u8"`,
 	} {
 		if !strings.Contains(pl, want) {

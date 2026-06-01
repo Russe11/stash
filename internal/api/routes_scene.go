@@ -253,8 +253,15 @@ func (rs sceneRoutes) TrickplayMedia(w http.ResponseWriter, r *http.Request) {
 	scene := r.Context().Value(sceneKey).(*models.Scene)
 	sceneHash := scene.GetHash(config.GetInstance().GetVideoFileNamingAlgorithm())
 
+	// MPEG-TS — set explicitly since Go doesn't map the .ts extension. http.ServeContent honors a
+	// pre-set Content-Type and still serves Range requests (how the player fetches each I-frame).
+	w.Header().Set("Content-Type", ffmpeg.MimeMpegTS)
 	utils.ServeStaticFile(w, r, manager.GetInstance().Paths.Scene.GetTrickplayMediaFilePath(sceneHash))
 }
+
+// trickplayCodec is the CODECS string for the trick-play I-frame variant. Must match generate.Trickplay's
+// pinned H.264 baseline@3.0 encode.
+const trickplayCodec = "avc1.42E01E"
 
 // buildHLSMasterPlaylist builds an HLS master playlist with the scene's main (live-transcoded) variant
 // plus a pre-generated I-frame variant for trick-play. Pure value→value so it's unit-testable.
@@ -275,7 +282,9 @@ func buildHLSMasterPlaylist(width, height int, bitrate int64, trickSize int, isP
 	buf.WriteString(streamInf + "\n")
 	buf.WriteString(mediaVariantURI + "\n")
 
-	iframeInf := "#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=" + strconv.FormatInt(iframeBandwidth(bitrate), 10)
+	// CODECS is required for AVPlayer/tvOS to actually use the I-frame variant for trick-play. It must
+	// match the generator's pinned encode (H.264 baseline@3.0) — see generate.Trickplay.
+	iframeInf := "#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=" + strconv.FormatInt(iframeBandwidth(bitrate), 10) + `,CODECS="` + trickplayCodec + `"`
 	if tw, th := trickplayDimensions(width, height, trickSize, isPortrait); tw > 0 && th > 0 {
 		iframeInf += ",RESOLUTION=" + strconv.Itoa(tw) + "x" + strconv.Itoa(th)
 	}

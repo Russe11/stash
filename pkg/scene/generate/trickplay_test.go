@@ -70,6 +70,8 @@ func TestTrickplayArgsAreIFrameSingleFile(t *testing.T) {
 	for _, want := range []string{
 		"single_file+iframes_only", // the I-frame muxer flags
 		"-g 1",                     // every frame a keyframe
+		"-profile:v baseline",      // pinned profile so CODECS is deterministic
+		"-level 3.0",
 		"scale=160:-2",             // landscape scale to longest dim
 		"fps=0.100000",             // 1 frame / 10s interval
 		"-hls_time 10",

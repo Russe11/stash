@@ -92,7 +92,10 @@ func trickplayArgs(input string, opts TrickplayOptions, tsPath, m3u8Path string)
 		"-an", "-sn",
 		"-vf", fmt.Sprintf("%s,fps=%.6f", scale, fps),
 		// Every output frame is an IDR keyframe so each playlist segment is a single seekable I-frame.
+		// Pinned to H.264 baseline@3.0 (CODECS "avc1.42E01E") so the master playlist can declare an
+		// exact, constant CODECS for the I-frame variant — required for AVPlayer/tvOS trick-play.
 		"-c:v", "libx264", "-preset", "veryfast",
+		"-profile:v", "baseline", "-level", "3.0",
 		"-g", "1", "-keyint_min", "1", "-sc_threshold", "0",
 		"-pix_fmt", "yuv420p",
 		"-f", "hls",
