@@ -100,6 +100,10 @@ func trickplayArgs(input string, opts TrickplayOptions, tsPath, m3u8Path string)
 		"-profile:v", "baseline", "-level", "3.0",
 		"-g", "1", "-keyint_min", "1", "-sc_threshold", "0",
 		"-pix_fmt", "yuv420p",
+		// Zero the MPEG-TS muxer's default 1.4s initial PTS offset so the I-frame timeline starts at 0,
+		// matching the main (live, 0-based) stream — otherwise AVPlayer fetches an I-frame whose PTS
+		// doesn't line up with the playhead and shows nothing during the trick-play scan.
+		"-muxdelay", "0", "-muxpreload", "0",
 		"-f", "hls",
 		"-hls_time", strconv.FormatFloat(opts.Interval, 'f', -1, 64),
 		"-hls_list_size", "0",

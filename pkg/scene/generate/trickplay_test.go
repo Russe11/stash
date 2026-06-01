@@ -72,8 +72,9 @@ func TestTrickplayArgsAreIFrameSingleFile(t *testing.T) {
 		"-g 1",                     // every frame a keyframe
 		"-profile:v baseline",      // pinned profile so CODECS is deterministic
 		"-level 3.0",
-		"scale=160:-2",             // landscape scale to longest dim
-		"fps=0.100000",             // 1 frame / 10s interval
+		"-muxdelay 0 -muxpreload 0", // zero the TS initial PTS offset (timeline aligns with main)
+		"scale=160:-2",              // landscape scale to longest dim
+		"fps=0.100000",              // 1 frame / 10s interval
 		"-hls_time 10",
 		"out.ts",
 		"out.m3u8",
