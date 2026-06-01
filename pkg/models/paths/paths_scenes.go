@@ -50,6 +50,19 @@ func (sp *scenePaths) GetSpriteVttFilePath(checksum string) string {
 	return filepath.Join(sp.Vtt, checksum+"_thumbs.vtt")
 }
 
+// GetTrickplayManifestFilePath is the HLS I-frame ("trick-play") playlist used for native scrub
+// thumbnails. Generated alongside the sprite (same cadence) and served as an EXT-X-I-FRAME-STREAM-INF
+// variant of the scene's HLS master playlist.
+func (sp *scenePaths) GetTrickplayManifestFilePath(checksum string) string {
+	return filepath.Join(sp.Vtt, checksum+"_trickplay.m3u8")
+}
+
+// GetTrickplayMediaFilePath is the single keyframe-only MPEG-TS the trick-play playlist byte-ranges
+// into (one I-frame per range).
+func (sp *scenePaths) GetTrickplayMediaFilePath(checksum string) string {
+	return filepath.Join(sp.Vtt, checksum+"_trickplay.ts")
+}
+
 func (sp *scenePaths) GetInteractiveHeatmapPath(checksum string) string {
 	return filepath.Join(sp.InteractiveHeatmap, checksum+".png")
 }

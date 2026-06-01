@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"math"
 	"net/http"
+	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
@@ -18,6 +21,7 @@ import (
 	"github.com/stashapp/stash/pkg/fsutil"
 	"github.com/stashapp/stash/pkg/logger"
 	"github.com/stashapp/stash/pkg/models"
+	"github.com/stashapp/stash/pkg/scene/generate"
 	"github.com/stashapp/stash/pkg/utils"
 )
 
@@ -65,6 +69,8 @@ func (rs sceneRoutes) Routes() chi.Router {
 		r.Get("/stream.mkv", rs.StreamMKV)
 		r.Get("/stream.m3u8", rs.StreamHLS)
 		r.Get("/stream.m3u8/{segment}.ts", rs.StreamHLSSegment)
+		r.Get("/trickplay.m3u8", rs.TrickplayManifest)
+		r.Get("/trickplay.ts", rs.TrickplayMedia)
 		r.Get("/stream.mpd", rs.StreamDASH)
 		r.Get("/stream.mpd/{segment}_v.webm", rs.StreamDASHVideoSegment)
 		r.Get("/stream.mpd/{segment}_a.webm", rs.StreamDASHAudioSegment)
@@ -166,7 +172,145 @@ func (rs sceneRoutes) streamTranscode(w http.ResponseWriter, r *http.Request, st
 }
 
 func (rs sceneRoutes) StreamHLS(w http.ResponseWriter, r *http.Request) {
+	// When a scene has a trick-play artifact, stream.m3u8 returns an HLS *master* playlist that adds an
+	// I-frame variant (native scrub previews). The main variant URI carries `type=media`, which routes
+	// back here to the unchanged media playlist below. Scenes without the artifact, and that media
+	// request, fall straight through to today's behavior — byte-identical, so the change is additive.
+	if r.URL.Query().Get("type") != "media" && rs.serveHLSMasterIfTrickplay(w, r) {
+		return
+	}
 	rs.streamManifest(w, r, ffmpeg.StreamTypeHLS, "HLS")
+}
+
+// serveHLSMasterIfTrickplay serves an HLS master playlist referencing the scene's trick-play I-frame
+// variant, when that artifact exists. Returns false (serving nothing) otherwise, so the caller falls
+// back to the plain media playlist.
+func (rs sceneRoutes) serveHLSMasterIfTrickplay(w http.ResponseWriter, r *http.Request) bool {
+	scene := r.Context().Value(sceneKey).(*models.Scene)
+	sceneHash := scene.GetHash(config.GetInstance().GetVideoFileNamingAlgorithm())
+
+	manifestPath := manager.GetInstance().Paths.Scene.GetTrickplayManifestFilePath(sceneHash)
+	if exists, _ := fsutil.FileExists(manifestPath); !exists {
+		return false
+	}
+
+	f := scene.Files.Primary()
+	if f == nil {
+		return false
+	}
+
+	apikey := r.URL.Query().Get("apikey")
+	resolution := r.URL.Query().Get("resolution")
+
+	// Main variant: route back to this endpoint as a media playlist (preserve resolution + apikey).
+	mediaQuery := url.Values{}
+	mediaQuery.Set("type", "media")
+	if resolution != "" {
+		mediaQuery.Set("resolution", resolution)
+	}
+	if apikey != "" {
+		mediaQuery.Set("apikey", apikey)
+	}
+	mediaVariantURI := "stream.m3u8?" + mediaQuery.Encode()
+
+	// I-frame variant: the trick-play playlist route (apikey carried explicitly for key-auth clients).
+	iframeVariantURI := "trickplay.m3u8"
+	if apikey != "" {
+		iframeVariantURI += "?apikey=" + url.QueryEscape(apikey)
+	}
+
+	pl := buildHLSMasterPlaylist(f.Width, f.Height, f.BitRate, manager.DefaultTrickplaySize, f.Height > f.Width, mediaVariantURI, iframeVariantURI)
+
+	w.Header().Set("Content-Type", ffmpeg.MimeHLS)
+	utils.ServeStaticContent(w, r, pl)
+	return true
+}
+
+// TrickplayManifest serves the scene's stored I-frame playlist, injecting the apikey into the media
+// URI for key-auth clients (cookie-auth clients resolve the relative URI + send their cookie).
+func (rs sceneRoutes) TrickplayManifest(w http.ResponseWriter, r *http.Request) {
+	scene := r.Context().Value(sceneKey).(*models.Scene)
+	sceneHash := scene.GetHash(config.GetInstance().GetVideoFileNamingAlgorithm())
+
+	data, err := os.ReadFile(manager.GetInstance().Paths.Scene.GetTrickplayManifestFilePath(sceneHash))
+	if err != nil {
+		http.Error(w, "trickplay not generated", http.StatusNotFound)
+		return
+	}
+
+	if apikey := r.URL.Query().Get("apikey"); apikey != "" {
+		withKey := generate.TrickplayMediaURI + "?apikey=" + url.QueryEscape(apikey)
+		data = bytes.ReplaceAll(data, []byte("\n"+generate.TrickplayMediaURI+"\n"), []byte("\n"+withKey+"\n"))
+	}
+
+	w.Header().Set("Content-Type", ffmpeg.MimeHLS)
+	utils.ServeStaticContent(w, r, data)
+}
+
+// TrickplayMedia serves the keyframe-only MPEG-TS the I-frame playlist byte-ranges into. http.ServeFile
+// honors Range requests, which is how the player fetches individual I-frames.
+func (rs sceneRoutes) TrickplayMedia(w http.ResponseWriter, r *http.Request) {
+	scene := r.Context().Value(sceneKey).(*models.Scene)
+	sceneHash := scene.GetHash(config.GetInstance().GetVideoFileNamingAlgorithm())
+
+	utils.ServeStaticFile(w, r, manager.GetInstance().Paths.Scene.GetTrickplayMediaFilePath(sceneHash))
+}
+
+// buildHLSMasterPlaylist builds an HLS master playlist with the scene's main (live-transcoded) variant
+// plus a pre-generated I-frame variant for trick-play. Pure value→value so it's unit-testable.
+func buildHLSMasterPlaylist(width, height int, bitrate int64, trickSize int, isPortrait bool, mediaVariantURI, iframeVariantURI string) []byte {
+	if bitrate <= 0 {
+		bitrate = 4000000
+	}
+
+	var buf bytes.Buffer
+	buf.WriteString("#EXTM3U\n")
+	buf.WriteString("#EXT-X-VERSION:7\n")
+	buf.WriteString("#EXT-X-INDEPENDENT-SEGMENTS\n")
+
+	streamInf := "#EXT-X-STREAM-INF:BANDWIDTH=" + strconv.FormatInt(bitrate, 10)
+	if width > 0 && height > 0 {
+		streamInf += ",RESOLUTION=" + strconv.Itoa(width) + "x" + strconv.Itoa(height)
+	}
+	buf.WriteString(streamInf + "\n")
+	buf.WriteString(mediaVariantURI + "\n")
+
+	iframeInf := "#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=" + strconv.FormatInt(iframeBandwidth(bitrate), 10)
+	if tw, th := trickplayDimensions(width, height, trickSize, isPortrait); tw > 0 && th > 0 {
+		iframeInf += ",RESOLUTION=" + strconv.Itoa(tw) + "x" + strconv.Itoa(th)
+	}
+	iframeInf += `,URI="` + iframeVariantURI + `"`
+	buf.WriteString(iframeInf + "\n")
+
+	return buf.Bytes()
+}
+
+// iframeBandwidth is a coarse, conservative estimate for the I-frame variant's BANDWIDTH attribute
+// (required by the spec; players don't switch to it for normal playback).
+func iframeBandwidth(mainBitrate int64) int64 {
+	b := mainBitrate / 20
+	if b < 50000 {
+		b = 50000
+	}
+	return b
+}
+
+// trickplayDimensions scales the source dimensions so the longest side is trickSize, preserving aspect
+// (for the I-frame variant's RESOLUTION attribute). Returns (0,0) when source dimensions are unknown.
+func trickplayDimensions(width, height, trickSize int, isPortrait bool) (int, int) {
+	if width <= 0 || height <= 0 || trickSize <= 0 {
+		return 0, 0
+	}
+	even := func(n int) int {
+		if n%2 != 0 {
+			n++
+		}
+		return n
+	}
+	if isPortrait {
+		return even(int(math.Round(float64(trickSize) * float64(width) / float64(height)))), trickSize
+	}
+	return trickSize, even(int(math.Round(float64(trickSize) * float64(height) / float64(width))))
 }
 
 func (rs sceneRoutes) StreamDASH(w http.ResponseWriter, r *http.Request) {

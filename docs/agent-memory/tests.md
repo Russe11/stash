@@ -13,6 +13,9 @@ Test coverage gaps noticed in passing: missing tests for specific branches, weak
 <one paragraph: what to verify + where the test belongs + run vs NG/upstream>
 -->
 
+### 2026-06-01 — Trick-play (HLS I-frame scrub previews): logic green, real-device playback UNVERIFIED
+The trick-play feature (ADR-0003) is built + unit-tested + ffmpeg-validated locally, but the one thing only hardware can confirm is still open: **does AVPlayerViewController on a real Apple TV actually render scrub thumbnails from the generated master playlist?** Verified so far: `rewriteTrickplayManifest` cumulative-offset fix (`pkg/scene/generate/trickplay_test.go`, fed real buggy ffmpeg `@0` output); `buildHLSMasterPlaylist`/`trickplayDimensions` (`internal/api/routes_scene_trickplay_test.go`); and an end-to-end ffmpeg run proving the exact `trickplayArgs` recipe yields a `.ts` whose corrected byte-ranges each decode to one H.264 frame. **Still to do (needs the user's Unraid box + Apple TV):** (1) deploy the server build and run a generate pass so scenes get `<hash>_trickplay.{m3u8,ts}`; (2) confirm thumbnails appear while scrubbing on tvOS; (3) confirm **macOS AVPlayer + the web player** tolerate the master playlist on generated scenes (Android is out — its player is being rebuilt to match tvOS). Lower-priority polish: add a `CODECS=` attribute to the master-playlist variants (`buildHLSMasterPlaylist`) — AVPlayer plays without it, but Apple's `mediastreamvalidator` flags its absence.
+
 ### 2026-05-30 — MoveFiles DestinationBasename (rename-on-move) branch still uncovered (manager-coupled)
 The MoveFiles file-move filesystem path is now covered end-to-end: `internal/api/resolver_mutation_movefiles_integration_test.go`
 (`//go:build integration`) drives `r.Mutation().MoveFiles` against a real sqlite DB + real temp library via the `stashPaths`
