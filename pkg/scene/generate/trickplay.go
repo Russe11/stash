@@ -41,7 +41,9 @@ func (g Generator) Trickplay(ctx context.Context, input string, opts TrickplayOp
 	lockCtx := g.LockManager.ReadLock(ctx, input)
 	defer lockCtx.Cancel()
 
-	tmpDir, err := os.MkdirTemp("", "stash-trickplay-")
+	// Temp dir on the SAME filesystem as the output, so SafeMove's os.Rename succeeds (a cross-device
+	// /tmp would fall back to a copy that can't overwrite an existing artifact — breaking regeneration).
+	tmpDir, err := os.MkdirTemp(filepath.Dir(mediaOutput), ".stash-trickplay-")
 	if err != nil {
 		return fmt.Errorf("creating trickplay temp dir: %w", err)
 	}
